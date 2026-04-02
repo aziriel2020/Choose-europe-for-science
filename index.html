@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Choose Europe Quiz - Local Edition</title>
+  
+  <!-- Dependencies -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .user-select-none { user-select: none; }
+    .touch-manipulation { touch-action: manipulation; }
+    
+    /* Custom Scrollbar for Playlist */
+    .playlist-scroll::-webkit-scrollbar { width: 6px; }
+    .playlist-scroll::-webkit-scrollbar-track { background: transparent; }
+    .playlist-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
+    .playlist-scroll:hover::-webkit-scrollbar-thumb { background-color: #94a3b8; }
+
+    /* 1 Billion Dollar Game Animations */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-8px) rotate(-1deg); }
+      50% { transform: translateX(8px) rotate(1deg); }
+      75% { transform: translateX(-8px) rotate(-1deg); }
+    }
+    .animate-shake { animation: shake 0.4s ease-in-out; }
+    
+    @keyframes pulse-green {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { box-shadow: 0 0 0 20px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .pulse-glow-green { animation: pulse-green 1.5s infinite; }
+    
+    .glass-card {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+  </style>
+</head>
+<body class="bg-slate-100">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // --- Internationalization (i18n) Dictionary ---
+    const i18n = {
+      en: {
+        name: "🇬🇧 English",
+        ui: {
+          title: "Choose Europe for Science", subtitle: "Test your knowledge of European mobility", welcome: "Welcome", enterPseudo: "Enter a pseudo to start playing locally", pseudoPlaceholder: "Your awesome pseudo...", startPlaying: "Start Quiz", playingAs: "Playing locally as", reset: "Restart", yourResults: "Your Results", time: "Time", perfect: "Perfect! You're an expert on European mobility.", goodEffort: "Good effort! Review the categories, then try again to beat your time.", playAgain: "Play Again", localLeaderboard: "Local Leaderboard", savedOnDevice: "Saved on this device", rank: "Rank", player: "Player", score: "Score", export: "Export", import: "Import", clear: "Clear", noScores: "No scores saved yet.", changePlayer: "Change Player", question: "Question"
+        },
+        cats: {
+          c1: { title: "Coming to Europe", subtitle: "arrive safely and with guarantees" },
+          c2: { title: "Working in Europe", subtitle: "conditions" },
+          c3: { title: "Living in Europe", subtitle: "How is the EU supporting it?" },
+          c4: { title: "Jobs & Funding", subtitle: "where to look for?" }
+        },
+        items: {
+          i1: "Visa and entry conditions", i2: "Work permit", i3: "EU Blue Card", i4: "Hosting agreement", i5: "Recognition of academic diplomas", i6: "Recognition of professional qualifications", i7: "Fair taxation and salary", i8: "Unemployment rights", i9: "Dedicated pension scheme - RESAVER", i10: "Intellectual property rights", i11: "Career development", i12: "Short and long-term mobility", i13: "Accommodation", i14: "Banking", i15: "Health insurance", i16: "Day care, schooling and family-related issues", i17: "Culture and language courses", i18: "EURAXESS", i19: "Horizon Europe", i20: "Marie Skłodowska-Curie Actions (MSCA)", i21: "European Research Council (ERC)"
+        }
+      },
+      fr: {
+        name: "🇫🇷 Français",
+        ui: {
+          title: "Choisir l'Europe pour la Science", subtitle: "Testez vos connaissances sur la mobilité européenne", welcome: "Bienvenue", enterPseudo: "Entrez un pseudo pour jouer localement", pseudoPlaceholder: "Votre super pseudo...", startPlaying: "Commencer le Quiz", playingAs: "Joueur local :", reset: "Recommencer", yourResults: "Vos Résultats", time: "Temps", perfect: "Parfait ! Vous êtes un expert de la mobilité européenne.", goodEffort: "Bel effort ! Révisez les catégories, puis réessayez.", playAgain: "Rejouer", localLeaderboard: "Classement Local", savedOnDevice: "Sauvegardé sur cet appareil", rank: "Rang", player: "Joueur", score: "Score", export: "Exporter", import: "Importer", clear: "Effacer", noScores: "Aucun score sauvegardé.", changePlayer: "Changer de joueur", question: "Question"
+        },
+        cats: {
+          c1: { title: "Venir en Europe", subtitle: "arriver en toute sécurité" },
+          c2: { title: "Travailler en Europe", subtitle: "conditions" },
+          c3: { title: "Vivre en Europe", subtitle: "Comment l'UE vous soutient ?" },
+          c4: { title: "Emplois & Financements", subtitle: "où chercher ?" }
+        },
+        items: {
+          i1: "Visa et conditions d'entrée", i2: "Permis de travail", i3: "Carte bleue européenne", i4: "Convention d'accueil", i5: "Reconnaissance des diplômes", i6: "Reconnaissance des qualifications professionnelles", i7: "Fiscalité et salaires équitables", i8: "Droits au chômage", i9: "Régime de retraite dédié - RESAVER", i10: "Droits de propriété intellectuelle", i11: "Développement de carrière", i12: "Mobilité à court et long terme", i13: "Logement", i14: "Services bancaires", i15: "Assurance maladie", i16: "Garde d'enfants, scolarité et questions familiales", i17: "Cours de culture et de langues", i18: "EURAXESS", i19: "Horizon Europe", i20: "Actions Marie Skłodowska-Curie (AMSC)", i21: "Conseil Européen de la Recherche (CER)"
+        }
+      },
+      de: {
+        name: "🇩🇪 Deutsch",
+        ui: {
+          title: "Wissenschaftsstandort Europa", subtitle: "Testen Sie Ihr Wissen zur europäischen Mobilität", welcome: "Willkommen", enterPseudo: "Geben Sie ein Pseudonym ein", pseudoPlaceholder: "Ihr Pseudonym...", startPlaying: "Quiz starten", playingAs: "Lokal spielen als", reset: "Neustart", yourResults: "Ihre Ergebnisse", time: "Zeit", perfect: "Perfekt! Sie sind ein Experte.", goodEffort: "Guter Versuch! Versuchen Sie Ihre Zeit zu schlagen.", playAgain: "Nochmal spielen", localLeaderboard: "Lokale Bestenliste", savedOnDevice: "Auf diesem Gerät gespeichert", rank: "Rang", player: "Spieler", score: "Punkte", export: "Export", import: "Import", clear: "Löschen", noScores: "Noch keine Ergebnisse.", changePlayer: "Spieler wechseln", question: "Frage"
+        },
+        cats: {
+          c1: { title: "Nach Europa kommen", subtitle: "Sicher ankommen" },
+          c2: { title: "In Europa arbeiten", subtitle: "Bedingungen" },
+          c3: { title: "In Europa leben", subtitle: "Wie unterstützt die EU?" },
+          c4: { title: "Jobs & Finanzierung", subtitle: "Wo suchen?" }
+        },
+        items: {
+          i1: "Visum und Einreisebedingungen", i2: "Arbeitserlaubnis", i3: "Blaue Karte EU", i4: "Gastaufnahmevereinbarung", i5: "Anerkennung von Hochschulabschlüssen", i6: "Anerkennung von Berufsqualifikationen", i7: "Faire Besteuerung und Gehalt", i8: "Arbeitslosenrechte", i9: "Spezielle Rentenregelung - RESAVER", i10: "Geistige Eigentumsrechte", i11: "Karriereentwicklung", i12: "Kurz- und langfristige Mobilität", i13: "Unterkunft", i14: "Bankwesen", i15: "Krankenversicherung", i16: "Kinderbetreuung, Schule und Familienfragen", i17: "Kultur- und Sprachkurse", i18: "EURAXESS", i19: "Horizon Europe", i20: "Marie-Skłodowska-Curie-Maßnahmen (MSCA)", i21: "Europäischer Forschungsrat (ERC)"
+        }
+      },
+      es: {
+        name: "🇪🇸 Español",
+        ui: {
+          title: "Elige Europa para la Ciencia", subtitle: "Pon a prueba tus conocimientos sobre movilidad", welcome: "Bienvenido", enterPseudo: "Introduce un seudónimo local", pseudoPlaceholder: "Tu seudónimo...", startPlaying: "Iniciar Quiz", playingAs: "Jugando localmente como", reset: "Reiniciar", yourResults: "Tus Resultados", time: "Tiempo", perfect: "¡Perfecto! Eres un experto.", goodEffort: "¡Buen esfuerzo! Vuelve a intentar para mejorar tu tiempo.", playAgain: "Jugar de nuevo", localLeaderboard: "Clasificación Local", savedOnDevice: "Guardado en el dispositivo", rank: "Rango", player: "Jugador", score: "Puntos", export: "Exportar", import: "Importar", clear: "Borrar", noScores: "No hay puntuaciones guardadas.", changePlayer: "Cambiar jugador", question: "Pregunta"
+        },
+        cats: {
+          c1: { title: "Venir a Europa", subtitle: "llegar con seguridad" },
+          c2: { title: "Trabajar en Europa", subtitle: "condiciones" },
+          c3: { title: "Vivir en Europa", subtitle: "¿Cómo apoya la UE?" },
+          c4: { title: "Empleo y Financiación", subtitle: "¿dónde buscar?" }
+        },
+        items: {
+          i1: "Visado y condiciones de entrada", i2: "Permiso de trabajo", i3: "Tarjeta Azul UE", i4: "Acuerdo de acogida", i5: "Reconocimiento de diplomas", i6: "Reconocimiento de cualificaciones profesionales", i7: "Fiscalidad y salario justos", i8: "Derechos de desempleo", i9: "Plan de pensiones dedicado - RESAVER", i10: "Derechos de propiedad intelectual", i11: "Desarrollo profesional", i12: "Movilidad a corto y largo plazo", i13: "Alojamiento", i14: "Servicios bancarios", i15: "Seguro médico", i16: "Guardería, educación y asuntos familiares", i17: "Cursos de cultura e idiomas", i18: "EURAXESS", i19: "Horizon Europe", i20: "Acciones Marie Skłodowska-Curie (MSCA)", i21: "Consejo Europeo de Investigación (ERC)"
+        }
+      },
+      it: {
+        name: "🇮🇹 Italiano",
+        ui: {
+          title: "Scegli l'Europa per la Scienza", subtitle: "Metti alla prova le tue conoscenze", welcome: "Benvenuto", enterPseudo: "Inserisci un nickname locale", pseudoPlaceholder: "Il tuo nickname...", startPlaying: "Inizia Quiz", playingAs: "Giocatore locale:", reset: "Ricomincia", yourResults: "I tuoi Risultati", time: "Tempo", perfect: "Perfetto! Sei un esperto.", goodEffort: "Buon tentativo! Riprova per battere il tuo tempo.", playAgain: "Gioca di nuovo", localLeaderboard: "Classifica Locale", savedOnDevice: "Salvato su questo dispositivo", rank: "Pos", player: "Giocatore", score: "Punti", export: "Esporta", import: "Importa", clear: "Cancella", noScores: "Nessun punteggio salvato.", changePlayer: "Cambia giocatore", question: "Domanda"
+        },
+        cats: {
+          c1: { title: "Venire in Europa", subtitle: "arrivare in sicurezza" },
+          c2: { title: "Lavorare in Europa", subtitle: "condizioni" },
+          c3: { title: "Vivere in Europa", subtitle: "Come ti supporta l'UE?" },
+          c4: { title: "Lavoro e Finanziamenti", subtitle: "dove cercare?" }
+        },
+        items: {
+          i1: "Visti e condizioni di ingresso", i2: "Permesso di lavoro", i3: "Carta Blu UE", i4: "Accordo di accoglienza", i5: "Riconoscimento dei diplomi", i6: "Riconoscimento qualifiche professionali", i7: "Tassazione e stipendio equi", i8: "Diritti di disoccupazione", i9: "Schema pensionistico dedicato - RESAVER", i10: "Diritti di proprietà intellettuale", i11: "Sviluppo carriera", i12: "Mobilità a breve e lungo termine", i13: "Alloggio", i14: "Servizi bancari", i15: "Assicurazione sanitaria", i16: "Asilo nido, scuola e questioni familiari", i17: "Corsi di cultura e lingua", i18: "EURAXESS", i19: "Horizon Europe", i20: "Azioni Marie Skłodowska-Curie (MSCA)", i21: "Consiglio Europeo della Ricerca (ERC)"
+        }
+      },
+      pt: {
+        name: "🇵🇹 Português",
+        ui: {
+          title: "Escolha a Europa para a Ciência", subtitle: "Teste os seus conhecimentos", welcome: "Bem-vindo", enterPseudo: "Insira um pseudo local", pseudoPlaceholder: "O teu pseudo...", startPlaying: "Começar Quiz", playingAs: "A jogar localmente como", reset: "Recomeçar", yourResults: "Os Teus Resultados", time: "Tempo", perfect: "Perfeito! És um especialista.", goodEffort: "Bom esforço! Tenta de novo.", playAgain: "Jogar Novamente", localLeaderboard: "Classificação Local", savedOnDevice: "Guardado neste dispositivo", rank: "Pos", player: "Jogador", score: "Pontos", export: "Exportar", import: "Importar", clear: "Limpar", noScores: "Nenhuma pontuação guardada.", changePlayer: "Mudar de jogador", question: "Pergunta"
+        },
+        cats: {
+          c1: { title: "Vir para a Europa", subtitle: "chegar em segurança" },
+          c2: { title: "Trabalhar na Europa", subtitle: "condições" },
+          c3: { title: "Viver na Europa", subtitle: "Como a UE apoia?" },
+          c4: { title: "Emprego e Financiamento", subtitle: "onde procurar?" }
+        },
+        items: {
+          i1: "Vistos e condições de entrada", i2: "Autorização de trabalho", i3: "Cartão Azul UE", i4: "Acordo de acolhimento", i5: "Reconhecimento de diplomas", i6: "Reconhecimento de qualificações profissionais", i7: "Tributação e salário justos", i8: "Direitos de desemprego", i9: "Regime de pensões dedicado - RESAVER", i10: "Direitos de propriedade intelectual", i11: "Desenvolvimento de carreira", i12: "Mobilidade a curto e longo prazo", i13: "Alojamento", i14: "Banca", i15: "Seguro de saúde", i16: "Creche, escolaridade e questões familiares", i17: "Cursos de cultura e línguas", i18: "EURAXESS", i19: "Horizon Europe", i20: "Ações Marie Skłodowska-Curie (MSCA)", i21: "Conselho Europeu de Investigação (ERC)"
+        }
+      },
+      nl: {
+        name: "🇳🇱 Nederlands",
+        ui: {
+          title: "Kies Europa voor Wetenschap", subtitle: "Test je kennis van Europese mobiliteit", welcome: "Welkom", enterPseudo: "Voer een lokale alias in", pseudoPlaceholder: "Jouw alias...", startPlaying: "Start Quiz", playingAs: "Lokaal spelen als", reset: "Herstarten", yourResults: "Resultaten", time: "Tijd", perfect: "Perfect!", goodEffort: "Goed geprobeerd!", playAgain: "Opnieuw Spelen", localLeaderboard: "Lokaal Scorebord", savedOnDevice: "Opgeslagen op dit apparaat", rank: "Rang", player: "Speler", score: "Score", export: "Exporteer", import: "Importeer", clear: "Wissen", noScores: "Nog geen scores opgeslagen.", changePlayer: "Speler wijzigen", question: "Vraag"
+        },
+        cats: {
+          c1: { title: "Naar Europa komen", subtitle: "veilig aankomen" },
+          c2: { title: "Werken in Europa", subtitle: "voorwaarden" },
+          c3: { title: "Wonen in Europa", subtitle: "Hoe ondersteunt de EU dit?" },
+          c4: { title: "Banen & Financiering", subtitle: "waar te zoeken?" }
+        },
+        items: {
+          i1: "Visum- en inreisvoorwaarden", i2: "Werkvergunning", i3: "Europese Blauwe Kaart", i4: "Gastovereenkomst", i5: "Erkenning academische diploma's", i6: "Erkenning beroepskwalificaties", i7: "Eerlijke belastingen en salaris", i8: "Werkloosheidsrechten", i9: "Specifiek pensioenstelsel - RESAVER", i10: "Intellectuele eigendomsrechten", i11: "Loopbaanontwikkeling", i12: "Korte en lange termijn mobiliteit", i13: "Huisvesting", i14: "Bankzaken", i15: "Ziektekostenverzekering", i16: "Kinderopvang, onderwijs en familiezaken", i17: "Cultuur- en taalcursussen", i18: "EURAXESS", i19: "Horizon Europe", i20: "Marie Skłodowska-Curie-acties (MSCA)", i21: "Europese Onderzoeksraad (ERC)"
+        }
+      },
+      pl: {
+        name: "🇵🇱 Polski",
+        ui: {
+          title: "Wybierz Europę dla Nauki", subtitle: "Sprawdź swoją wiedzę", welcome: "Witamy", enterPseudo: "Wpisz lokalny pseudonim", pseudoPlaceholder: "Twój pseudonim...", startPlaying: "Rozpocznij Quiz", playingAs: "Grasz lokalnie jako", reset: "Zresetuj", yourResults: "Twoje Wyniki", time: "Czas", perfect: "Idealnie!", goodEffort: "Niezły wynik!", playAgain: "Zagraj Ponownie", localLeaderboard: "Lokalny Ranking", savedOnDevice: "Zapisano na tym urządzeniu", rank: "Ranga", player: "Gracz", score: "Wynik", export: "Eksport", import: "Import", clear: "Wyczyść", noScores: "Brak zapisanych wyników.", changePlayer: "Zmień gracza", question: "Pytanie"
+        },
+        cats: {
+          c1: { title: "Przyjazd do Europy", subtitle: "bezpieczny przyjazd" },
+          c2: { title: "Praca w Europie", subtitle: "warunki" },
+          c3: { title: "Życie w Europie", subtitle: "Jak wspiera to UE?" },
+          c4: { title: "Praca i Finansowanie", subtitle: "gdzie szukać?" }
+        },
+        items: {
+          i1: "Wizy i warunki wjazdu", i2: "Pozwolenie na pracę", i3: "Niebieska Karta UE", i4: "Porozumienie o przyjęciu", i5: "Uznawanie dyplomów akademickich", i6: "Uznawanie kwalifikacji zawodowych", i7: "Uczciwe opodatkowanie i wynagrodzenie", i8: "Prawa dla bezrobotnych", i9: "System emerytalny - RESAVER", i10: "Prawa własności intelektualnej", i11: "Rozwój kariery", i12: "Mobilność krótko- i długoterminowa", i13: "Zakwaterowanie", i14: "Bankowość", i15: "Ubezpieczenie zdrowotne", i16: "Opieka nad dziećmi, szkolnictwo i sprawy rodzinne", i17: "Kursy kultury i języka", i18: "EURAXESS", i19: "Horyzont Europa", i20: "Działania Marii Skłodowskiej-Curie (MSCA)", i21: "Europejska Rada ds. Badań Naukowych (ERC)"
+        }
+      },
+      sv: {
+        name: "🇸🇪 Svenska",
+        ui: {
+          title: "Välj Europa för Vetenskap", subtitle: "Testa dina kunskaper", welcome: "Välkommen", enterPseudo: "Ange ett lokalt alias", pseudoPlaceholder: "Ditt alias...", startPlaying: "Starta Quiz", playingAs: "Spelar lokalt som", reset: "Börja om", yourResults: "Dina Resultat", time: "Tid", perfect: "Perfekt!", goodEffort: "Bra jobbat!", playAgain: "Spela Igen", localLeaderboard: "Lokal Topplista", savedOnDevice: "Sparad på denna enhet", rank: "Plats", player: "Spelare", score: "Poäng", export: "Exportera", import: "Importera", clear: "Rensa", noScores: "Inga poäng sparade ännu.", changePlayer: "Byt spelare", question: "Fråga"
+        },
+        cats: {
+          c1: { title: "Komma till Europa", subtitle: "anlända säkert" },
+          c2: { title: "Arbeta i Europa", subtitle: "villkor" },
+          c3: { title: "Leva i Europa", subtitle: "Hur stöder EU det?" },
+          c4: { title: "Jobb & Finansiering", subtitle: "var ska man leta?" }
+        },
+        items: {
+          i1: "Visum och inresevillkor", i2: "Arbetstillstånd", i3: "EU:s blåkort", i4: "Mottagningsavtal", i5: "Erkännande av akademiska examina", i6: "Erkännande av yrkeskvalifikationer", i7: "Rättvis beskattning och lön", i8: "Arbetslöshetsrättigheter", i9: "Särskilt pensionssystem - RESAVER", i10: "Immaterialrättigheter", i11: "Karriärutveckling", i12: "Kort- och långsiktig mobilitet", i13: "Boende", i14: "Banktjänster", i15: "Sjukförsäkring", i16: "Barnomsorg, skola och familjefrågor", i17: "Kultur- och språkkurser", i18: "EURAXESS", i19: "Horisont Europa", i20: "Marie Skłodowska-Curie-åtgärder (MSCA)", i21: "Europeiska forskningsrådet (ERC)"
+        }
+      },
+      el: {
+        name: "🇬🇷 Ελληνικά",
+        ui: {
+          title: "Επιλέξτε την Ευρώπη", subtitle: "Δοκιμάστε τις γνώσεις σας", welcome: "Καλώς ήρθατε", enterPseudo: "Εισάγετε τοπικό ψευδώνυμο", pseudoPlaceholder: "Το ψευδώνυμό σας...", startPlaying: "Έναρξη Κουίζ", playingAs: "Παίζετε τοπικά ως", reset: "Επανεκκίνηση", yourResults: "Τα Αποτελέσματά σας", time: "Χρόνος", perfect: "Τέλεια!", goodEffort: "Καλή προσπάθεια!", playAgain: "Παίξτε Ξανά", localLeaderboard: "Τοπική Κατάταξη", savedOnDevice: "Αποθηκεύτηκε", rank: "Θέση", player: "Παίκτης", score: "Σκορ", export: "Εξαγωγή", import: "Εισαγωγή", clear: "Διαγραφή", noScores: "Δεν υπάρχουν σκορ.", changePlayer: "Αλλαγή Παίκτη", question: "Ερώτηση"
+        },
+        cats: {
+          c1: { title: "Ερχόμενοι στην Ευρώπη", subtitle: "άφιξη με ασφάλεια" },
+          c2: { title: "Εργασία στην Ευρώπη", subtitle: "συνθήκες" },
+          c3: { title: "Ζώντας στην Ευρώπη", subtitle: "Πώς το υποστηρίζει η ΕΕ;" },
+          c4: { title: "Θέσεις & Χρηματοδότηση", subtitle: "πού να ψάξετε;" }
+        },
+        items: {
+          i1: "Θεωρήσεις και προϋποθέσεις εισόδου", i2: "Άδεια εργασίας", i3: "Μπλε Κάρτα της ΕΕ", i4: "Συμφωνία υποδοχής", i5: "Αναγνώριση ακαδημαϊκών διπλωμάτων", i6: "Αναγνώριση επαγγελματικών προσόντων", i7: "Δίκαιη φορολογία και μισθός", i8: "Δικαιώματα ανεργίας", i9: "Ειδικό συνταξιοδοτικό σύστημα - RESAVER", i10: "Δικαιώματα διανοητικής ιδιοκτησίας", i11: "Ανάπτυξη σταδιοδρομίας", i12: "Βραχυπρόθεσμη και μακροπρόθεσμη κινητικότητα", i13: "Στέγαση", i14: "Τραπεζικές υπηρεσίες", i15: "Ασφάλιση υγείας", i16: "Παιδική μέριμνα, σχολείο και οικογενειακά ζητήματα", i17: "Μαθήματα πολιτισμού και γλωσσών", i18: "EURAXESS", i19: "Ορίζοντας Ευρώπη", i20: "Δράσεις Marie Skłodowska-Curie (MSCA)", i21: "Ευρωπαϊκό Συμβούλιο Έρευνας (ERC)"
+        }
+      },
+      cs: {
+        name: "🇨🇿 Čeština",
+        ui: {
+          title: "Zvolte Evropu pro Vědu", subtitle: "Otestujte své znalosti", welcome: "Vítejte", enterPseudo: "Zadejte lokální přezdívku", pseudoPlaceholder: "Vaše přezdívka...", startPlaying: "Začít Kvíz", playingAs: "Hrajete lokálně jako", reset: "Restartovat", yourResults: "Vaše Výsledky", time: "Čas", perfect: "Perfektní!", goodEffort: "Dobrá snaha!", playAgain: "Hrát Znovu", localLeaderboard: "Lokální Žebříček", savedOnDevice: "Uloženo v zařízení", rank: "Pořadí", player: "Hráč", score: "Skóre", export: "Exportovat", import: "Importovat", clear: "Vymazat", noScores: "Žádné uložené skóre.", changePlayer: "Změnit hráče", question: "Otázka"
+        },
+        cats: {
+          c1: { title: "Příjezd do Evropy", subtitle: "přijeďte bezpečně" },
+          c2: { title: "Práce v Evropě", subtitle: "podmínky" },
+          c3: { title: "Život v Evropě", subtitle: "Jak to EU podporuje?" },
+          c4: { title: "Práce a Financování", subtitle: "kde hledat?" }
+        },
+        items: {
+          i1: "Víza a podmínky vstupu", i2: "Pracovní povolení", i3: "Modrá karta EU", i4: "Dohoda o hostování", i5: "Uznávání akademických diplomů", i6: "Uznávání profesních kvalifikací", i7: "Spravedlivé zdanění a plat", i8: "Práva v nezaměstnanosti", i9: "Specializovaný penzijní systém - RESAVER", i10: "Práva duševního vlastnictví", i11: "Kariérní rozvoj", i12: "Krátkodobá a dlouhodobá mobilita", i13: "Ubytování", i14: "Bankovnictví", i15: "Zdravotní pojištění", i16: "Péče o děti, školství a rodinné záležitosti", i17: "Kulturní a jazykové kurzy", i18: "EURAXESS", i19: "Horizont Evropa", i20: "Akce Marie Skłodowská-Curie (MSCA)", i21: "Evropská rada pro výzkum (ERC)"
+        }
+      },
+      ro: {
+        name: "🇷🇴 Română",
+        ui: {
+          title: "Alegeți Europa pentru Știință", subtitle: "Testați-vă cunoștințele", welcome: "Bun venit", enterPseudo: "Introduceți un pseudonim local", pseudoPlaceholder: "Pseudonimul tău...", startPlaying: "Începe Quiz", playingAs: "Jucați local ca", reset: "Restart", yourResults: "Rezultatele Tale", time: "Timp", perfect: "Perfect!", goodEffort: "Bun efort!", playAgain: "Joacă din Nou", localLeaderboard: "Clasament Local", savedOnDevice: "Salvat pe acest dispozitiv", rank: "Rang", player: "Jucător", score: "Scor", export: "Exportă", import: "Importă", clear: "Șterge", noScores: "Niciun scor salvat.", changePlayer: "Schimbă jucătorul", question: "Întrebare"
+        },
+        cats: {
+          c1: { title: "Venirea în Europa", subtitle: "sosire în siguranță" },
+          c2: { title: "Munca în Europa", subtitle: "condiții" },
+          c3: { title: "Traiul în Europa", subtitle: "Cum sprijină UE?" },
+          c4: { title: "Locuri de Muncă & Finanțare", subtitle: "unde să cauți?" }
+        },
+        items: {
+          i1: "Vize și condiții de intrare", i2: "Permis de muncă", i3: "Cartea Albastră a UE", i4: "Acord de găzduire", i5: "Recunoașterea diplomelor academice", i6: "Recunoașterea calificărilor profesionale", i7: "Impozitare și salariu echitabile", i8: "Drepturi de șomaj", i9: "Schemă de pensii dedicată - RESAVER", i10: "Drepturi de proprietate intelectuală", i11: "Dezvoltarea carierei", i12: "Mobilitate pe termen scurt și lung", i13: "Cazare", i14: "Servicii bancare", i15: "Asigurare de sănătate", i16: "Îngrijirea copiilor, școală și probleme familiale", i17: "Cursuri de cultură și limbă", i18: "EURAXESS", i19: "Orizont Europa", i20: "Acțiunile Marie Skłodowska-Curie (MSCA)", i21: "Consiliul European pentru Cercetare (ERC)"
+        }
+      },
+      bg: {
+        name: "🇧🇬 Български",
+        ui: {
+          title: "Изберете Европа за наука", subtitle: "Тествайте знанията си за европейската мобилност", welcome: "Добре дошли", enterPseudo: "Въведете псевдоним за локална игра", pseudoPlaceholder: "Вашият псевдоним...", startPlaying: "Започни теста", playingAs: "Играете като", reset: "Рестарт", yourResults: "Вашите резултати", time: "Време", perfect: "Перфектно! Вие сте експерт по европейска мобилност.", goodEffort: "Добър опит! Прегледайте категориите и опитайте отново.", playAgain: "Играй отново", localLeaderboard: "Локална класация", savedOnDevice: "Запазено на устройството", rank: "Ранг", player: "Играч", score: "Резултат", export: "Експорт", import: "Импорт", clear: "Изчисти", noScores: "Няма запазени резултати.", changePlayer: "Смени играч", question: "Въпрос"
+        },
+        cats: {
+          c1: { title: "Пристигане в Европа", subtitle: "пристигайте безопасно и с гаранции" },
+          c2: { title: "Работа в Европа", subtitle: "условия" },
+          c3: { title: "Живот в Европа", subtitle: "Как го подкрепя ЕС?" },
+          c4: { title: "Работа и финансиране", subtitle: "къде да търсите?" }
+        },
+        items: {
+          i1: "Визи и условия за влизане", i2: "Разрешително за работа", i3: "Синя карта на ЕС", i4: "Споразумение за прием", i5: "Признаване на академични дипломи", i6: "Признаване на професионални квалификации", i7: "Справедливо данъчно облагане и заплата", i8: "Права при безработица", i9: "Специална пенсионна схема - RESAVER", i10: "Права върху интелектуална собственост", i11: "Кариерно развитие", i12: "Краткосрочна и дългосрочна мобилност", i13: "Настаняване", i14: "Банкиране", i15: "Здравно осигуряване", i16: "Детски ясли, училище и семейни въпроси", i17: "Културни и езикови курсове", i18: "EURAXESS", i19: "Хоризонт Европа", i20: "Действия Мария Склодовска-Кюри (MSCA)", i21: "Европейски съвет за научни изследвания (ERC)"
+        }
+      },
+      hr: {
+        name: "🇭🇷 Hrvatski",
+        ui: {
+          title: "Odaberite Europu za znanost", subtitle: "Testirajte svoje znanje o europskoj mobilnosti", welcome: "Dobrodošli", enterPseudo: "Unesite nadimak za lokalnu igru", pseudoPlaceholder: "Vaš nadimak...", startPlaying: "Započni kviz", playingAs: "Igrate kao", reset: "Ponovno pokreni", yourResults: "Vaši rezultati", time: "Vrijeme", perfect: "Savršeno! Vi ste stručnjak za europsku mobilnost.", goodEffort: "Dobar pokušaj! Pregledajte kategorije i pokušajte ponovno.", playAgain: "Igraj ponovno", localLeaderboard: "Lokalna ljestvica", savedOnDevice: "Spremljeno na uređaju", rank: "Poredak", player: "Igrač", score: "Rezultat", export: "Izvoz", import: "Uvoz", clear: "Očisti", noScores: "Nema spremljenih rezultata.", changePlayer: "Promijeni igrača", question: "Pitanje"
+        },
+        cats: {
+          c1: { title: "Dolazak u Europu", subtitle: "stignite sigurno i s jamstvima" },
+          c2: { title: "Rad u Europi", subtitle: "uvjeti" },
+          c3: { title: "Život u Europi", subtitle: "Kako to EU podržava?" },
+          c4: { title: "Poslovi i financiranje", subtitle: "gdje tražiti?" }
+        },
+        items: {
+          i1: "Viza i uvjeti ulaska", i2: "Radna dozvola", i3: "EU plava karta", i4: "Ugovor o gostovanju", i5: "Priznavanje akademskih diploma", i6: "Priznavanje stručnih kvalifikacija", i7: "Pravedno oporezivanje i plaća", i8: "Prava za slučaj nezaposlenosti", i9: "Namjenski mirovinski sustav - RESAVER", i10: "Prava intelektualnog vlasništva", i11: "Razvoj karijere", i12: "Kratkoročna i dugoročna mobilnost", i13: "Smještaj", i14: "Bankarstvo", i15: "Zdravstveno osiguranje", i16: "Dječji vrtić, škola i obiteljska pitanja", i17: "Tečajevi kulture i jezika", i18: "EURAXESS", i19: "Obzor Europa", i20: "Aktivnosti Marie Skłodowska-Curie (MSCA)", i21: "Europsko istraživačko vijeće (ERC)"
+        }
+      },
+      da: {
+        name: "🇩🇰 Dansk",
+        ui: {
+          title: "Vælg Europa for videnskab", subtitle: "Test din viden om europæisk mobilitet", welcome: "Velkommen", enterPseudo: "Indtast et alias for at spille lokalt", pseudoPlaceholder: "Dit alias...", startPlaying: "Start Quiz", playingAs: "Spiller som", reset: "Genstart", yourResults: "Dine resultater", time: "Tid", perfect: "Perfekt! Du er ekspert i europæisk mobilitet.", goodEffort: "Godt forsøg! Gennemgå kategorierne og prøv igen.", playAgain: "Spil igen", localLeaderboard: "Lokal rangliste", savedOnDevice: "Gemt på enhed", rank: "Rang", player: "Spiller", score: "Score", export: "Eksporter", import: "Importer", clear: "Ryd", noScores: "Ingen gemte scores.", changePlayer: "Skift spiller", question: "Spørgsmål"
+        },
+        cats: {
+          c1: { title: "At komme til Europa", subtitle: "ankom sikkert og med garantier" },
+          c2: { title: "At arbejde i Europa", subtitle: "betingelser" },
+          c3: { title: "At bo i Europa", subtitle: "Hvordan støtter EU?" },
+          c4: { title: "Job og finansiering", subtitle: "hvor skal man lede?" }
+        },
+        items: {
+          i1: "Visum og indrejsebetingelser", i2: "Arbejdstilladelse", i3: "EU's blå kort", i4: "Værtsaftale", i5: "Anerkendelse af akademiske eksamensbeviser", i6: "Anerkendelse af faglige kvalifikationer", i7: "Retfærdig beskatning og løn", i8: "Arbejdsløshedsrettigheder", i9: "Dedikeret pensionsordning - RESAVER", i10: "Intellektuel ejendomsret", i11: "Karriereudvikling", i12: "Kort- og langsigtet mobilitet", i13: "Indkvartering", i14: "Bankvæsen", i15: "Sygesikring", i16: "Daginstitution, skole og familierelaterede spørgsmål", i17: "Kultur- og sprogkurser", i18: "EURAXESS", i19: "Horisont Europa", i20: "Marie Skłodowska-Curie-aktiviteter (MSCA)", i21: "Det Europæiske Forskningsråd (ERC)"
+        }
+      },
+      et: {
+        name: "🇪🇪 Eesti",
+        ui: {
+          title: "Vali teaduseks Euroopa", subtitle: "Testi oma teadmisi Euroopa liikuvusest", welcome: "Tere tulemast", enterPseudo: "Sisesta pseudonüüm kohalikuks mänguks", pseudoPlaceholder: "Sinu pseudonüüm...", startPlaying: "Alusta viktoriini", playingAs: "Mängid kui", reset: "Taaskäivita", yourResults: "Sinu tulemused", time: "Aeg", perfect: "Täiuslik! Oled Euroopa liikuvuse ekspert.", goodEffort: "Hea katse! Vaata kategooriad üle ja proovi uuesti.", playAgain: "Mängi uuesti", localLeaderboard: "Kohalik edetabel", savedOnDevice: "Seadmesse salvestatud", rank: "Koht", player: "Mängija", score: "Skoor", export: "Ekspordi", import: "Impordi", clear: "Tühjenda", noScores: "Salvestatud skoore pole.", changePlayer: "Vaheta mängijat", question: "Küsimus"
+        },
+        cats: {
+          c1: { title: "Euroopasse tulek", subtitle: "saabu turvaliselt ja garantiidega" },
+          c2: { title: "Euroopas töötamine", subtitle: "tingimused" },
+          c3: { title: "Euroopas elamine", subtitle: "Kuidas EL seda toetab?" },
+          c4: { title: "Töökohad ja rahastamine", subtitle: "kust otsida?" }
+        },
+        items: {
+          i1: "Viisa ja riiki sisenemise tingimused", i2: "Tööluba", i3: "ELi sinine kaart", i4: "Vastuvõtuleping", i5: "Akadeemiliste diplomite tunnustamine", i6: "Kutsekvalifikatsioonide tunnustamine", i7: "Õiglane maksustamine ja palk", i8: "Töötuse õigused", i9: "Spetsiaalne pensioniskeem - RESAVER", i10: "Intellektuaalomandi õigused", i11: "Karjääri areng", i12: "Lühi- ja pikaajaline liikuvus", i13: "Majutus", i14: "Pangandus", i15: "Ravikindlustus", i16: "Lastehoid, kool ja perega seotud küsimused", i17: "Kultuuri- ja keelekursused", i18: "EURAXESS", i19: "Euroopa horisont", i20: "Marie Skłodowska-Curie meetmed (MSCA)", i21: "Euroopa Teadusnõukogu (ERC)"
+        }
+      },
+      fi: {
+        name: "🇫🇮 Suomi",
+        ui: {
+          title: "Valitse Eurooppa tieteelle", subtitle: "Testaa tietosi Euroopan liikkuvuudesta", welcome: "Tervetuloa", enterPseudo: "Syötä nimimerkki paikallista peliä varten", pseudoPlaceholder: "Nimimerkkisi...", startPlaying: "Aloita Visa", playingAs: "Pelaat nimimerkillä", reset: "Uudelleenkäynnistys", yourResults: "Tuloksesi", time: "Aika", perfect: "Täydellistä! Olet Euroopan liikkuvuuden asiantuntija.", goodEffort: "Hyvä yritys! Tarkista kategoriat ja yritä parantaa aikaasi.", playAgain: "Pelaa uudelleen", localLeaderboard: "Paikallinen tulostaulu", savedOnDevice: "Tallennettu laitteelle", rank: "Sija", player: "Pelaaja", score: "Pisteet", export: "Vie", import: "Tuo", clear: "Tyhjennä", noScores: "Ei tallennettuja tuloksia.", changePlayer: "Vaihda pelaajaa", question: "Kysymys"
+        },
+        cats: {
+          c1: { title: "Eurooppaan saapuminen", subtitle: "saavu turvallisesti ja takuiden kera" },
+          c2: { title: "Euroopassa työskentely", subtitle: "olosuhteet" },
+          c3: { title: "Euroopassa asuminen", subtitle: "Miten EU tukee sitä?" },
+          c4: { title: "Työpaikat ja rahoitus", subtitle: "mistä etsiä?" }
+        },
+        items: {
+          i1: "Viisumi- ja maahantuloedellytykset", i2: "Työlupa", i3: "EU:n sininen kortti", i4: "Vastaanottosopimus", i5: "Akateemisten tutkintojen tunnustaminen", i6: "Ammattipätevyyden tunnustaminen", i7: "Oikeudenmukainen verotus ja palkka", i8: "Työttömyysoikeudet", i9: "Erityinen eläkejärjestelmä - RESAVER", i10: "Teollis- ja tekijänoikeudet", i11: "Urakehitys", i12: "Lyhyt- ja pitkäaikainen liikkuvuus", i13: "Majoitus", i14: "Pankkipalvelut", i15: "Sairausvakuutus", i16: "Päivähoito, koulu ja perheasiat", i17: "Kulttuuri- ja kielikurssit", i18: "EURAXESS", i19: "Euroopan horisontti", i20: "Marie Skłodowska-Curie -toimet (MSCA)", i21: "Euroopan tutkimusneuvosto (ERC)"
+        }
+      },
+      hu: {
+        name: "🇭🇺 Magyar",
+        ui: {
+          title: "Válassza Európát a tudományért", subtitle: "Tesztelje tudását az európai mobilitásról", welcome: "Üdvözöljük", enterPseudo: "Adjon meg egy álnevet a helyi játékhoz", pseudoPlaceholder: "Az Ön álneve...", startPlaying: "Kvíz indítása", playingAs: "Helyi játékosként:", reset: "Újraindítás", yourResults: "Eredményei", time: "Idő", perfect: "Tökéletes! Ön az európai mobilitás szakértője.", goodEffort: "Szép próbálkozás! Nézze át a kategóriákat, és próbálja meg újra.", playAgain: "Újra játszom", localLeaderboard: "Helyi ranglista", savedOnDevice: "Eszközre mentve", rank: "Helyezés", player: "Játékos", score: "Pontszám", export: "Exportálás", import: "Importálás", clear: "Törlés", noScores: "Nincsenek mentett pontszámok.", changePlayer: "Játékos váltása", question: "Kérdés"
+        },
+        cats: {
+          c1: { title: "Európába érkezés", subtitle: "érkezzen biztonságosan és garanciákkal" },
+          c2: { title: "Munkavégzés Európában", subtitle: "feltételek" },
+          c3: { title: "Élet Európában", subtitle: "Hogyan támogatja ezt az EU?" },
+          c4: { title: "Állások és finanszírozás", subtitle: "hol keressen?" }
+        },
+        items: {
+          i1: "Vízum- és beutazási feltételek", i2: "Munkavállalási engedély", i3: "EU Kék Kártya", i4: "Fogadási megállapodás", i5: "Tudományos oklevelek elismerése", i6: "Szakmai képesítések elismerése", i7: "Méltányos adózás és fizetés", i8: "Munkanélküliségi jogok", i9: "Célzott nyugdíjrendszer - RESAVER", i10: "Szellemi tulajdonjogok", i11: "Karrierfejlesztés", i12: "Rövid és hosszú távú mobilitás", i13: "Szállás", i14: "Bankügyek", i15: "Egészségbiztosítás", i16: "Bölcsőde, iskola és családi ügyek", i17: "Kulturális és nyelvtanfolyamok", i18: "EURAXESS", i19: "Horizont Európa", i20: "Marie Skłodowska-Curie-cselekvések (MSCA)", i21: "Európai Kutatási Tanács (ERC)"
+        }
+      },
+      ga: {
+        name: "🇮🇪 Gaeilge",
+        ui: {
+          title: "Roghnaigh an Eoraip don Eolaíocht", subtitle: "Tástáil do chuid eolais ar shoghluaisteacht Eorpach", welcome: "Fáilte", enterPseudo: "Cuir isteach leasainm chun imirt go háitiúil", pseudoPlaceholder: "Do leasainm...", startPlaying: "Tosaigh Tráth na gCeist", playingAs: "Ag imirt mar", reset: "Atosaigh", yourResults: "Do Thorthaí", time: "Am", perfect: "Foirfe! Is saineolaí tú ar shoghluaisteacht Eorpach.", goodEffort: "Iarracht mhaith! Déan athbhreithniú ar na catagóirí agus déan iarracht arís.", playAgain: "Imir Arís", localLeaderboard: "Clár Ceannairí Áitiúil", savedOnDevice: "Sábháilte ar an ngléas", rank: "Céim", player: "Imreoir", score: "Scór", export: "Easpórtáil", import: "Iompórtáil", clear: "Glan", noScores: "Níl aon scóir sábháilte fós.", changePlayer: "Athraigh Imreoir", question: "Ceist"
+        },
+        cats: {
+          c1: { title: "Ag teacht go dtí an Eoraip", subtitle: "sroich slán agus le ráthaíochtaí" },
+          c2: { title: "Ag obair san Eoraip", subtitle: "coinníollacha" },
+          c3: { title: "Ag maireachtáil san Eoraip", subtitle: "Conas atá an AE á thacú?" },
+          c4: { title: "Poist & Maoiniú", subtitle: "cá háit le cuardach a dhéanamh?" }
+        },
+        items: {
+          i1: "Víosa agus coinníollacha iontrála", i2: "Cead oibre", i3: "Cárta Gorm an AE", i4: "Comhaontú óstála", i5: "Aitheantas do dhioplómaí acadúla", i6: "Aitheantas do cháilíochtaí gairmiúla", i7: "Cánachas agus tuarastal cothrom", i8: "Cearta dífhostaíochta", i9: "Scéim phinsin tiomnaithe - RESAVER", i10: "Cearta maoine intleachtúla", i11: "Forbairt gairme", i12: "Soghluaisteacht ghearrthéarmach agus fhadtéarmach", i13: "Lóistín", i14: "Baincéireacht", i15: "Árachas sláinte", i16: "Cúram leanaí, scolaíocht agus saincheisteanna teaghlaigh", i17: "Cúrsaí cultúir agus teanga", i18: "EURAXESS", i19: "Fís Eorpach", i20: "Gníomhartha Marie Skłodowska-Curie (MSCA)", i21: "An Chomhairle Eorpach um Thaighde (ERC)"
+        }
+      },
+      lv: {
+        name: "🇱🇻 Latviešu",
+        ui: {
+          title: "Izvēlieties Eiropu zinātnei", subtitle: "Pārbaudiet savas zināšanas par Eiropas mobilitāti", welcome: "Laipni lūdzam", enterPseudo: "Ievadiet segvārdu, lai spēlētu lokāli", pseudoPlaceholder: "Jūsu segvārds...", startPlaying: "Sākt viktorīnu", playingAs: "Spēlējat kā", reset: "Restartēt", yourResults: "Jūsu rezultāti", time: "Laiks", perfect: "Perfekti! Jūs esat Eiropas mobilitātes eksperts.", goodEffort: "Labs mēģinājums! Pārskatiet kategorijas un mēģiniet vēlreiz.", playAgain: "Spēlēt vēlreiz", localLeaderboard: "Vietējais uzvarētāju saraksts", savedOnDevice: "Saglabāts šajā ierīcē", rank: "Rangs", player: "Spēlētājs", score: "Rezultāts", export: "Eksportēt", import: "Importēt", clear: "Notīrīt", noScores: "Nav saglabātu rezultātu.", changePlayer: "Mainīt spēlētāju", question: "Jautājums"
+        },
+        cats: {
+          c1: { title: "Ierašanās Eiropā", subtitle: "ierodieties droši un ar garantijām" },
+          c2: { title: "Darbs Eiropā", subtitle: "nosacījumi" },
+          c3: { title: "Dzīve Eiropā", subtitle: "Kā ES to atbalsta?" },
+          c4: { title: "Darbs un finansējums", subtitle: "kur meklēt?" }
+        },
+        items: {
+          i1: "Vīzu un ieceļošanas nosacījumi", i2: "Darba atļauja", i3: "ES zilā karte", i4: "Uzņemšanas nolīgums", i5: "Akadēmisko diplomu atzīšana", i6: "Profesionālās kvalifikācijas atzīšana", i7: "Godīga nodokļu uzlikšana un atalgojums", i8: "Bezdarba tiesības", i9: "Īpaša pensiju shēma - RESAVER", i10: "Intelektuālā īpašuma tiesības", i11: "Karjeras attīstība", i12: "Īstermiņa un ilgtermiņa mobilitāte", i13: "Izmitināšana", i14: "Bankas pakalpojumi", i15: "Veselības apdrošināšana", i16: "Bērnu aprūpe, skola un ģimenes jautājumi", i17: "Kultūras un valodu kursi", i18: "EURAXESS", i19: "Apvārsnis Eiropa", i20: "Marijas Sklodovskas-Kirī vārdā nosauktās darbības (MSCA)", i21: "Eiropas Pētniecības padome (ERC)"
+        }
+      },
+      lt: {
+        name: "🇱🇹 Lietuvių",
+        ui: {
+          title: "Rinkitės Europą mokslui", subtitle: "Patikrinkite savo žinias apie Europos mobilumą", welcome: "Sveiki", enterPseudo: "Įveskite slapyvardį", pseudoPlaceholder: "Jūsų slapyvardis...", startPlaying: "Pradėti viktoriną", playingAs: "Žaidžiate kaip", reset: "Iš naujo", yourResults: "Jūsų rezultatai", time: "Laikas", perfect: "Tobula! Jūs esate Europos mobilumo ekspertas.", goodEffort: "Geras bandymas! Peržiūrėkite kategorijas ir bandykite dar kartą.", playAgain: "Žaisti dar kartą", localLeaderboard: "Vietinė lyderių lentelė", savedOnDevice: "Išsaugota šiame įrenginyje", rank: "Vieta", player: "Žaidėjas", score: "Rezultatas", export: "Eksportuoti", import: "Importuoti", clear: "Išvalyti", noScores: "Nėra išsaugotų rezultatų.", changePlayer: "Pakeisti žaidėją", question: "Klausimas"
+        },
+        cats: {
+          c1: { title: "Atvykimas į Europą", subtitle: "atvykite saugiai ir su garantijomis" },
+          c2: { title: "Darbas Europoje", subtitle: "sąlygos" },
+          c3: { title: "Gyvenimas Europoje", subtitle: "Kaip ES tai remia?" },
+          c4: { title: "Darbai ir finansavimas", subtitle: "kur ieškoti?" }
+        },
+        items: {
+          i1: "Vizos ir atvykimo sąlygos", i2: "Darbo leidimas", i3: "ES mėlynoji kortelė", i4: "Priėmimo susitarimas", i5: "Akademinių diplomų pripažinimas", i6: "Profesinių kvalifikacijų pripažinimas", i7: "Sąžiningas apmokestinimas ir atlyginimas", i8: "Nedarbo teisės", i9: "Speciali pensijų sistema - RESAVER", i10: "Intelektinės nuosavybės teisės", i11: "Karjeros plėtra", i12: "Trumpalaikis ir ilgalaikis mobilumas", i13: "Apgyvendinimas", i14: "Bankininkystė", i15: "Sveikatos draudimas", i16: "Vaikų priežiūra, mokykla ir šeimos klausimai", i17: "Kultūros ir kalbų kursai", i18: "EURAXESS", i19: "Europos horizontas", i20: "Marie Skłodowska-Curie veiksmai (MSCA)", i21: "Europos mokslo taryba (ERC)"
+        }
+      },
+      mt: {
+        name: "🇲🇹 Malti",
+        ui: {
+          title: "Agħżel l-Ewropa għax-Xjenza", subtitle: "Ittestja l-għarfien tiegħek dwar il-mobbiltà Ewropea", welcome: "Merħba", enterPseudo: "Daħħal psewdonimu", pseudoPlaceholder: "Il-psewdonimu tiegħek...", startPlaying: "Ibda l-Kwizz", playingAs: "Qed tilgħab bħala", reset: "Ibda mill-ġdid", yourResults: "Ir-Riżultati Tiegħek", time: "Ħin", perfect: "Perfett! Int espert fil-mobbiltà Ewropea.", goodEffort: "Sforz tajjeb! Irrevedi l-kategoriji u erġa' pprova.", playAgain: "Erġa' Ilgħab", localLeaderboard: "Klassifika Lokali", savedOnDevice: "Issejvjat fuq dan l-apparat", rank: "Grad", player: "Plejer", score: "Punteġġ", export: "Esporta", import: "Importa", clear: "Ħassar", noScores: "L-ebda punteġġ salvat.", changePlayer: "Biddel il-Plejer", question: "Mistoqsija"
+        },
+        cats: {
+          c1: { title: "Tiġi fl-Ewropa", subtitle: "asal bla periklu u b'garanziji" },
+          c2: { title: "Taħdem fl-Ewropa", subtitle: "kundizzjonijiet" },
+          c3: { title: "Tgħix fl-Ewropa", subtitle: "Kif qed tappoġġjaha l-UE?" },
+          c4: { title: "Xogħlijiet u Finanzjament", subtitle: "fejn għandek tfittex?" }
+        },
+        items: {
+          i1: "Viża u kundizzjonijiet tad-dħul", i2: "Permess tax-xogħol", i3: "Karta Blu tal-UE", i4: "Ftehim ta' akkoljenza", i5: "Rikonoxximent ta' diplomi akkademiċi", i6: "Rikonoxximent ta' kwalifiki professjonali", i7: "Tassazzjoni ġusta u salarju", i8: "Drittijiet tal-qgħad", i9: "Skema ta' pensjoni ddedikata - RESAVER", i10: "Drittijiet tal-proprjetà intellettwali", i11: "Żvilupp tal-karriera", i12: "Mobbiltà għal żmien qasir u twil", i13: "Akkomodazzjoni", i14: "Servizzi bankarji", i15: "Assigurazzjoni tas-saħħa", i16: "Indukrar tat-tfal, skola u kwistjonijiet tal-familja", i17: "Korsijiet ta' kultura u lingwa", i18: "EURAXESS", i19: "Orizzont Ewropa", i20: "Azzjonijiet Marie Skłodowska-Curie (MSCA)", i21: "Kunsill Ewropew tar-Riċerka (ERC)"
+        }
+      },
+      sk: {
+        name: "🇸🇰 Slovenčina",
+        ui: {
+          title: "Vyberte si Európu pre vedu", subtitle: "Otestujte si svoje znalosti o európskej mobilite", welcome: "Vitajte", enterPseudo: "Zadajte prezývku", pseudoPlaceholder: "Vaša prezývka...", startPlaying: "Začať kvíz", playingAs: "Hráte ako", reset: "Reštart", yourResults: "Vaše výsledky", time: "Čas", perfect: "Perfektné! Ste expert na európsku mobilitu.", goodEffort: "Dobrý pokus! Pozrite si kategórie a skúste to znova.", playAgain: "Hrať znova", localLeaderboard: "Lokálna tabuľka", savedOnDevice: "Uložené v zariadení", rank: "Poradie", player: "Hráč", score: "Skóre", export: "Export", import: "Import", clear: "Vymazať", noScores: "Žiadne uložené skóre.", changePlayer: "Zmeniť hráča", question: "Otázka"
+        },
+        cats: {
+          c1: { title: "Príchod do Európy", subtitle: "príďte bezpečne a so zárukami" },
+          c2: { title: "Práca v Európe", subtitle: "podmienky" },
+          c3: { title: "Život v Európe", subtitle: "Ako to EÚ podporuje?" },
+          c4: { title: "Práca a financovanie", subtitle: "kde hľadať?" }
+        },
+        items: {
+          i1: "Víza a podmienky vstupu", i2: "Pracovné povolenie", i3: "Modrá karta EÚ", i4: "Dohoda o hosťovaní", i5: "Uznávanie akademických diplomov", i6: "Uznávanie odborných kvalifikácií", i7: "Spravodlivé zdanenie a plat", i8: "Práva v nezamestnanosti", i9: "Špecializovaný dôchodkový systém - RESAVER", i10: "Práva duševného vlastníctva", i11: "Kariérny rozvoj", i12: "Krátkodobá a dlhodobá mobilita", i13: "Ubytovanie", i14: "Bankovníctvo", i15: "Zdravotné poistenie", i16: "Starostlivosť o deti, škola a rodinné záležitosti", i17: "Kultúrne a jazykové kurzy", i18: "EURAXESS", i19: "Horizont Európa", i20: "Akcie Marie Skłodowska-Curie (MSCA)", i21: "Európska rada pre výskum (ERC)"
+        }
+      },
+      sl: {
+        name: "🇸🇮 Slovenščina",
+        ui: {
+          title: "Izberite Evropo za znanost", subtitle: "Preizkusite svoje znanje o evropski mobilnosti", welcome: "Dobrodošli", enterPseudo: "Vnesite vzdevek", pseudoPlaceholder: "Vaš vzdevek...", startPlaying: "Začni kviz", playingAs: "Igrate kot", reset: "Ponovni zagon", yourResults: "Vaši rezultati", time: "Čas", perfect: "Odlično! Ste strokovnjak za evropsko mobilnost.", goodEffort: "Dober poskus! preglejte kategorije in poskusite znova.", playAgain: "Igraj znova", localLeaderboard: "Lokalna lestvica", savedOnDevice: "Shranjeno v napravi", rank: "Uvrstitev", player: "Igralec", score: "Rezultat", export: "Izvoz", import: "Uvoz", clear: "Počisti", noScores: "Ni shranjenih rezultatov.", changePlayer: "Spremeni igralca", question: "Vprašanje"
+        },
+        cats: {
+          c1: { title: "Prihod v Evropo", subtitle: "pridite varno in z jamstvi" },
+          c2: { title: "Delo v Evropi", subtitle: "pogoji" },
+          c3: { title: "Življenje v Evropi", subtitle: "Kako to podpira EU?" },
+          c4: { title: "Zaposlitve in financiranje", subtitle: "kje iskati?" }
+        },
+        items: {
+          i1: "Vizum in pogoji za vstop", i2: "Delovno dovoljenje", i3: "Modra karta EU", i4: "Dogovor o gostovanju", i5: "Priznavanje akademskih diplom", i6: "Priznavanje poklicnih kvalifikacij", i7: "Poštena obdavčitev in plača", i8: "Pravice za primer brezposelnosti", i9: "Namenska pokojninska shema - RESAVER", i10: "Pravice intelektualne lastnine", i11: "Razvoj kariere", i12: "Kratkoročna in dolgoročna mobilnost", i13: "Nastanitev", i14: "Bančništvo", i15: "Zdravstveno zavarovanje", i16: "Varstvo otrok, šola in družinska vprašanja", i17: "Kulturni in jezikovni tečaji", i18: "EURAXESS", i19: "Obzorje Evropa", i20: "Ukrepi Marie Skłodowska-Curie (MSCA)", i21: "Evropski raziskovalni svet (ERC)"
+        }
+      }
+    };
+
+    // --- Structural Configuration (Language Agnostic) ---
+    const CATEGORIES_CONFIG = [
+      { id: 'c1', color: 'from-blue-500 to-cyan-500 shadow-blue-500/30' },
+      { id: 'c2', color: 'from-emerald-500 to-teal-500 shadow-emerald-500/30' },
+      { id: 'c3', color: 'from-purple-500 to-indigo-500 shadow-purple-500/30' },
+      { id: 'c4', color: 'from-amber-500 to-orange-500 shadow-amber-500/30' }
+    ];
+
+    const ITEMS_CONFIG = [
+      { id: 'i1', target: 'c1' }, { id: 'i2', target: 'c1' }, { id: 'i3', target: 'c1' }, { id: 'i4', target: 'c1' }, { id: 'i5', target: 'c1' }, { id: 'i6', target: 'c1' },
+      { id: 'i7', target: 'c2' }, { id: 'i8', target: 'c2' }, { id: 'i9', target: 'c2' }, { id: 'i10', target: 'c2' }, { id: 'i11', target: 'c2' }, { id: 'i12', target: 'c2' },
+      { id: 'i13', target: 'c3' }, { id: 'i14', target: 'c3' }, { id: 'i15', target: 'c3' }, { id: 'i16', target: 'c3' }, { id: 'i17', target: 'c3' },
+      { id: 'i18', target: 'c4' }, { id: 'i19', target: 'c4' }, { id: 'i20', target: 'c4' }, { id: 'i21', target: 'c4' }
+    ];
+
+    // Shuffle array helper
+    const shuffle = (array) => {
+      let currentIndex = array.length, randomIndex;
+      while (currentIndex > 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+      }
+      return array;
+    };
+
+    // ==========================================
+    // MUSIC PLAYER & VISUALIZER COMPONENT
+    // ==========================================
+    function MusicPlayer() {
+      const [playlist, setPlaylist] = useState([]);
+      const [currentIndex, setCurrentIndex] = useState(0);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [isExpanded, setIsExpanded] = useState(false);
+      const [progress, setProgress] = useState(0);
+      const [volume, setVolume] = useState(0.7);
+      
+      const audioRef = useRef(null);
+      const fileInputRef = useRef(null);
+      
+      const canvasRef = useRef(null);
+      const audioContextRef = useRef(null);
+      const analyserRef = useRef(null);
+
+      const handleFolderSelect = (e) => {
+        const files = Array.from(e.target.files);
+        const audioFiles = files.filter(file => file.type.startsWith('audio/') || file.name.endsWith('.mp3') || file.name.endsWith('.wav') || file.name.endsWith('.ogg'));
+        
+        if (audioFiles.length === 0) {
+          alert("No music files found in the selected folder!");
+          return;
+        }
+
+        const newPlaylist = audioFiles.map((file, index) => ({
+          id: index,
+          title: file.name.replace(/\.[^/.]+$/, ""),
+          url: URL.createObjectURL(file)
+        }));
+
+        setPlaylist(newPlaylist);
+        setCurrentIndex(0);
+        setIsExpanded(true); 
+      };
+
+      const initVisualizer = () => {
+        if (!audioContextRef.current && audioRef.current) {
+          try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256; 
+            
+            const source = audioCtx.createMediaElementSource(audioRef.current);
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination); 
+            
+            audioContextRef.current = audioCtx;
+            analyserRef.current = analyser;
+          } catch(err) {
+            console.error("Audio Context Init Failed:", err);
+          }
+        }
+        if (audioContextRef.current?.state === 'suspended') {
+           audioContextRef.current.resume();
+        }
+      };
+
+      const togglePlay = () => {
+        if (playlist.length === 0) return;
+        initVisualizer();
+        
+        if (isPlaying) {
+          audioRef.current.pause();
+        } else {
+          audioRef.current.play().catch(err => console.error("Playback failed:", err));
+        }
+        setIsPlaying(!isPlaying);
+      };
+
+      const playTrack = (index) => {
+        initVisualizer();
+        setCurrentIndex(index);
+        setIsPlaying(true);
+      };
+
+      const nextTrack = () => {
+        if (playlist.length === 0) return;
+        setCurrentIndex((prev) => (prev + 1) % playlist.length);
+        setIsPlaying(true);
+      };
+
+      const prevTrack = () => {
+        if (playlist.length === 0) return;
+        setCurrentIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
+        setIsPlaying(true);
+      };
+
+      useEffect(() => {
+        if (audioRef.current && playlist.length > 0) {
+          audioRef.current.src = playlist[currentIndex].url;
+          audioRef.current.volume = volume;
+          if (isPlaying) {
+            audioRef.current.play().catch(err => {
+              console.error("Autoplay prevented:", err);
+              setIsPlaying(false);
+            });
+          }
+        }
+      }, [currentIndex, playlist]);
+
+      useEffect(() => {
+        let animationId;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        const draw = () => {
+          animationId = requestAnimationFrame(draw);
+          
+          if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+          }
+
+          if (!isPlaying || !analyserRef.current) {
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             return;
+          }
+
+          const analyser = analyserRef.current;
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+          analyser.getByteFrequencyData(dataArray);
+
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          const barWidth = (canvas.width / bufferLength) * 2;
+          let barHeight;
+          let x = 0;
+
+          for (let i = 0; i < bufferLength; i++) {
+            barHeight = (dataArray[i] / 255) * canvas.height * 0.5; 
+
+            const r = 99 + (dataArray[i] / 2);
+            const g = 102 + (i * 2);
+            const b = 241;
+
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.2)`; 
+            ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+            
+            x += barWidth;
+          }
+        };
+        
+        draw();
+        return () => cancelAnimationFrame(animationId);
+      }, [isPlaying]);
+
+      const handleTimeUpdate = () => {
+        if (audioRef.current && audioRef.current.duration) {
+          const p = (audioRef.current.currentTime / audioRef.current.duration) * 100;
+          setProgress(p);
+        }
+      };
+
+      const handleVolumeChange = (e) => {
+        const v = parseFloat(e.target.value);
+        setVolume(v);
+        if (audioRef.current) audioRef.current.volume = v;
+      };
+
+      const handleProgressBarClick = (e) => {
+        if (!audioRef.current || playlist.length === 0) return;
+        const bar = e.currentTarget;
+        const rect = bar.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const newTime = (clickX / rect.width) * audioRef.current.duration;
+        audioRef.current.currentTime = newTime;
+      };
+
+      const formatTime = (timeInSeconds) => {
+        if (isNaN(timeInSeconds)) return "0:00";
+        const m = Math.floor(timeInSeconds / 60);
+        const s = Math.floor(timeInSeconds % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+      };
+
+      return (
+        <>
+          <canvas ref={canvasRef} className="fixed inset-0 w-full h-full pointer-events-none z-0 opacity-80" />
+          
+          <div className={`fixed bottom-6 left-6 z-50 transition-all duration-300 ease-in-out ${isExpanded ? 'w-80' : 'w-64'}`}>
+            <audio 
+              ref={audioRef} 
+              onTimeUpdate={handleTimeUpdate} 
+              onEnded={nextTrack}
+              crossOrigin="anonymous"
+              className="hidden" 
+            />
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFolderSelect} 
+              webkitdirectory="true" 
+              directory="true" 
+              multiple 
+              className="hidden" 
+            />
+
+            <div className="glass-card shadow-2xl rounded-2xl overflow-hidden flex flex-col group relative z-50">
+              <div 
+                className="p-4 flex items-center justify-between cursor-pointer bg-gradient-to-r from-indigo-50/50 to-blue-50/50 border-b border-slate-200/30 hover:bg-indigo-100/50 transition-colors"
+                onClick={() => setIsExpanded(!isExpanded)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${isPlaying ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300'}`}>
+                    <i className="fas fa-music text-sm"></i>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-slate-800 truncate w-32">
+                      {playlist.length > 0 ? playlist[currentIndex].title : "Music Player"}
+                    </span>
+                    <span className="text-[10px] text-slate-500 uppercase font-bold">
+                      {playlist.length > 0 ? `Track ${currentIndex + 1} of ${playlist.length}` : "No folder loaded"}
+                    </span>
+                  </div>
+                </div>
+                <button className="text-slate-400 hover:text-indigo-600 transition-colors">
+                  <i className={`fas fa-chevron-${isExpanded ? 'down' : 'up'}`}></i>
+                </button>
+              </div>
+
+              {isExpanded && (
+                <div className="flex flex-col">
+                  <div className="h-48 overflow-y-auto playlist-scroll p-2 bg-slate-50/30">
+                    {playlist.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-slate-400 p-4 text-center">
+                        <i className="fas fa-folder-open text-3xl mb-2 opacity-50"></i>
+                        <p className="text-xs font-medium">Click "Load 'musics' Folder" below to retrieve your songs!</p>
+                      </div>
+                    ) : (
+                      playlist.map((track, i) => (
+                        <div 
+                          key={track.id} 
+                          onClick={() => playTrack(i)}
+                          className={`px-3 py-2 rounded-lg text-sm cursor-pointer mb-1 transition-colors flex items-center gap-3
+                            ${currentIndex === i 
+                              ? 'bg-indigo-100/80 text-indigo-700 font-bold border border-indigo-200/50' 
+                              : 'hover:bg-white/50 text-slate-600 border border-transparent hover:border-slate-200/50'}`}
+                        >
+                          <span className="opacity-50 text-xs w-4 text-right">{i + 1}.</span>
+                          <span className="truncate">{track.title}</span>
+                          {currentIndex === i && isPlaying && (
+                            <i className="fas fa-volume-up text-indigo-500 ml-auto animate-pulse"></i>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="p-4 bg-white/50">
+                    <div className="mb-4">
+                      <div className="flex justify-between text-[10px] font-bold text-slate-400 mb-1">
+                        <span>{audioRef.current ? formatTime(audioRef.current.currentTime) : "0:00"}</span>
+                        <span>{audioRef.current && audioRef.current.duration ? formatTime(audioRef.current.duration) : "0:00"}</span>
+                      </div>
+                      <div 
+                        className="h-2 bg-slate-200/50 rounded-full cursor-pointer relative overflow-hidden"
+                        onClick={handleProgressBarClick}
+                      >
+                        <div 
+                          className="h-full bg-gradient-to-r from-indigo-500 to-blue-500 absolute top-0 left-0 rounded-full pointer-events-none transition-all duration-150"
+                          style={{ width: `${progress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <button 
+                        onClick={() => fileInputRef.current.click()} 
+                        className="text-slate-400 hover:text-indigo-600 transition-colors tooltip"
+                        title="Load 'musics' folder"
+                      >
+                        <i className="fas fa-folder-plus text-lg"></i>
+                      </button>
+                      
+                      <div className="flex items-center gap-4">
+                        <button onClick={prevTrack} className="text-slate-600 hover:text-indigo-600 transition-transform hover:scale-110 disabled:opacity-30" disabled={playlist.length === 0}>
+                          <i className="fas fa-backward-step text-lg"></i>
+                        </button>
+                        
+                        <button 
+                          onClick={togglePlay} 
+                          className="w-12 h-12 flex items-center justify-center bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-md hover:shadow-lg transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                          disabled={playlist.length === 0}
+                        >
+                          <i className={`fas fa-${isPlaying ? 'pause' : 'play'} text-xl ml-${isPlaying ? '0' : '1'}`}></i>
+                        </button>
+                        
+                        <button onClick={nextTrack} className="text-slate-600 hover:text-indigo-600 transition-transform hover:scale-110 disabled:opacity-30" disabled={playlist.length === 0}>
+                          <i className="fas fa-forward-step text-lg"></i>
+                        </button>
+                      </div>
+
+                      <div className="relative group/vol">
+                        <button className="text-slate-400 hover:text-indigo-600 transition-colors">
+                          <i className={`fas fa-volume-${volume === 0 ? 'mute' : volume < 0.5 ? 'down' : 'up'} text-lg`}></i>
+                        </button>
+                        <div className="absolute bottom-full right-0 mb-2 p-2 glass-card rounded-lg shadow-xl border border-slate-100 opacity-0 invisible group-hover/vol:opacity-100 group-hover/vol:visible transition-all">
+                          <input 
+                            type="range" 
+                            min="0" max="1" step="0.05" 
+                            value={volume} 
+                            onChange={handleVolumeChange}
+                            className="w-24 accent-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {playlist.length === 0 && (
+                      <button 
+                        onClick={() => fileInputRef.current.click()}
+                        className="w-full mt-4 py-2 bg-slate-100/80 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+                      >
+                        <i className="fas fa-upload"></i> Load 'musics' Folder
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    // --- Shared Language Switcher ---
+    const LanguageSwitcher = ({ lang, setLang }) => (
+      <div className="absolute top-4 right-4 z-[70] flex items-center gap-2 glass-card px-3 py-2 rounded-xl shadow-sm transition-all hover:shadow-md">
+        <i className="fas fa-globe text-indigo-500"></i>
+        <select 
+          value={lang} 
+          onChange={(e) => setLang(e.target.value)}
+          className="bg-transparent font-bold text-slate-700 outline-none cursor-pointer text-sm"
+        >
+          {Object.entries(i18n).map(([code, data]) => (
+            <option key={code} value={code}>{data.name}</option>
+          ))}
+        </select>
+      </div>
+    );
+
+    function App() {
+      // --- State ---
+      const [lang, setLang] = useState('en'); 
+      const [gameState, setGameState] = useState('login'); // login, playing, results
+      const [username, setUsername] = useState('');
+      
+      const [questions, setQuestions] = useState([]);
+      const [currentQIndex, setCurrentQIndex] = useState(0);
+      const [selectedAnswer, setSelectedAnswer] = useState(null);
+      const [isRevealing, setIsRevealing] = useState(false);
+      
+      const [score, setScore] = useState(0);
+      const [time, setTime] = useState(0);
+      const [leaderboard, setLeaderboard] = useState([]);
+      const [toast, setToast] = useState(null);
+      const [showPwdModal, setShowPwdModal] = useState(false);
+      const [pwdInput, setPwdInput] = useState('');
+
+      const t = i18n[lang] || i18n['en'];
+
+      const showToast = (msg) => {
+        setToast(msg);
+        setTimeout(() => setToast(null), 3000);
+      };
+
+      // --- Initialization & Local Storage ---
+      useEffect(() => {
+        const saved = localStorage.getItem('chooseEuropeQuizLeaderboard');
+        if (saved) {
+          try {
+            setLeaderboard(JSON.parse(saved));
+          } catch (e) {
+            console.error("Failed to parse local leaderboard.");
+          }
+        }
+      }, []);
+
+      const setupGame = () => {
+        const shuffled = shuffle([...ITEMS_CONFIG]);
+        setQuestions(shuffled);
+        setCurrentQIndex(0);
+        setScore(0);
+        setTime(0);
+        setSelectedAnswer(null);
+        setIsRevealing(false);
+        setGameState('playing');
+      };
+
+      const handleStartGame = (e) => {
+        e.preventDefault();
+        if (!username.trim()) return;
+        setupGame();
+      };
+
+      // --- Timer ---
+      useEffect(() => {
+        let interval;
+        if (gameState === 'playing') {
+          interval = setInterval(() => {
+            setTime((prevTime) => prevTime + 1);
+          }, 1000);
+        }
+        return () => clearInterval(interval);
+      }, [gameState]);
+
+      const formatTime = (seconds) => {
+        const getSeconds = `0${(seconds % 60)}`.slice(-2);
+        const minutes = `${Math.floor(seconds / 60)}`;
+        const getMinutes = `0${minutes % 60}`.slice(-2);
+        return `${getMinutes}:${getSeconds}`;
+      };
+
+      // --- Quiz Interaction Logic ---
+      const handleAnswer = (categoryId) => {
+        if (isRevealing) return; // Lock input
+        
+        setSelectedAnswer(categoryId);
+        setIsRevealing(true);
+        
+        const currentQ = questions[currentQIndex];
+        const isCorrect = categoryId === currentQ.target;
+        
+        if (isCorrect) {
+          setScore(prev => prev + 1);
+        }
+
+        // Auto-advance after animation
+        setTimeout(() => {
+          if (currentQIndex + 1 < questions.length) {
+            setCurrentQIndex(prev => prev + 1);
+            setSelectedAnswer(null);
+            setIsRevealing(false);
+          } else {
+            endGame(isCorrect ? score + 1 : score);
+          }
+        }, 1500);
+      };
+
+      const endGame = (finalScore) => {
+        setGameState('results');
+        
+        const newEntry = {
+          id: Date.now(),
+          username: username.trim(),
+          score: finalScore,
+          time: time,
+          total: questions.length
+        };
+        
+        setLeaderboard(prev => {
+          const updated = [...prev, newEntry];
+          const sorted = updated.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return a.time - b.time;
+          }).slice(0, 10); 
+          
+          localStorage.setItem('chooseEuropeQuizLeaderboard', JSON.stringify(sorted));
+          return sorted;
+        });
+      };
+
+      // --- File System Operations ---
+      const exportLeaderboard = () => {
+        if (leaderboard.length === 0) {
+          showToast("Leaderboard is empty! Play a game first.");
+          return;
+        }
+        const blob = new Blob([JSON.stringify(leaderboard, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'quiz_leaderboard.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast("Leaderboard exported to file! 💾");
+      };
+
+      const importLeaderboard = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const importedData = JSON.parse(event.target.result);
+            if (Array.isArray(importedData)) {
+              setLeaderboard(importedData);
+              localStorage.setItem('chooseEuropeQuizLeaderboard', JSON.stringify(importedData));
+              showToast("Leaderboard imported successfully! 🚀");
+            } else {
+              showToast("Invalid file format.");
+            }
+          } catch (err) {
+            showToast("Error reading the JSON file.");
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = null; 
+      };
+
+      const clearLeaderboard = () => {
+        setShowPwdModal(true);
+        setPwdInput('');
+      };
+
+      const confirmClear = () => {
+        if (pwdInput === "rtdf4") {
+          setLeaderboard([]);
+          localStorage.removeItem('chooseEuropeQuizLeaderboard');
+          showToast("Leaderboard cleared! 🗑️");
+          setShowPwdModal(false);
+        } else {
+          showToast("Incorrect password. ❌");
+          setShowPwdModal(false);
+        }
+      };
+
+
+      // --- RENDER MAIN LAYOUT ---
+      return (
+        <div className="min-h-screen text-slate-800 font-sans flex flex-col relative pb-32 overflow-x-hidden bg-slate-50">
+          
+          <LanguageSwitcher lang={lang} setLang={setLang} />
+          
+          {toast && (
+            <div className="fixed bottom-6 right-6 bg-slate-800 text-white font-medium px-6 py-3 rounded-xl shadow-2xl z-50 transition-all duration-300">
+              {toast}
+            </div>
+          )}
+
+          {showPwdModal && (
+            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+              <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm animate-in zoom-in-95 duration-200">
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Clear Leaderboard</h3>
+                <p className="text-sm text-slate-500 mb-4">Enter password to clear all saved scores:</p>
+                <input 
+                  type="password" 
+                  value={pwdInput} 
+                  onChange={e => setPwdInput(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl mb-6 focus:ring-2 focus:ring-rose-400 outline-none"
+                  placeholder="Password"
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && confirmClear()}
+                />
+                <div className="flex gap-3 justify-end">
+                  <button onClick={() => setShowPwdModal(false)} className="px-4 py-2 rounded-lg font-semibold text-slate-500 hover:bg-slate-100 transition-colors">Cancel</button>
+                  <button onClick={confirmClear} className="px-4 py-2 rounded-lg font-semibold bg-rose-500 text-white hover:bg-rose-600 transition-colors">Confirm</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <MusicPlayer />
+
+          {/* LOGIN SCREEN */}
+          {gameState === 'login' ? (
+            <div className="flex-grow flex items-center justify-center p-4 relative z-10">
+              <div className="glass-card p-8 rounded-3xl shadow-2xl max-w-md w-full border border-white/60 transform transition-all duration-500 animate-in zoom-in-95 fade-in">
+                <div className="text-center mb-8">
+                  <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-indigo-500/30 rotate-3">
+                    <i className="fas fa-brain text-4xl"></i>
+                  </div>
+                  <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-indigo-600 leading-tight pb-1">
+                    {t.ui.title}
+                  </h1>
+                  <p className="text-slate-600 mt-3 font-medium text-lg">{t.ui.subtitle}</p>
+                </div>
+                <form onSubmit={handleStartGame} className="space-y-6">
+                  <div>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder={t.ui.pseudoPlaceholder}
+                      className="w-full px-6 py-4 bg-white/60 border border-slate-300 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 focus:bg-white outline-none transition-all text-slate-700 font-bold text-lg placeholder:text-slate-400 shadow-sm"
+                      maxLength={15}
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!username.trim()}
+                    className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-8 py-5 rounded-2xl font-extrabold text-xl hover:shadow-2xl hover:shadow-indigo-500/40 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                  >
+                    <i className="fas fa-play group-hover:scale-110 transition-transform"></i> {t.ui.startPlaying}
+                  </button>
+                </form>
+              </div>
+            </div>
+            
+          // QUIZ SCREEN
+          ) : gameState === 'playing' ? (
+            <div className="flex-grow flex flex-col p-4 md:p-8 relative z-10 w-full max-w-5xl mx-auto animate-in fade-in duration-700">
+              
+              {/* Header */}
+              <header className="w-full flex flex-col md:flex-row justify-between items-center mb-8 gap-4 glass-card p-4 md:px-8 rounded-2xl shadow-lg mt-12 md:mt-0">
+                <div>
+                  <h1 className="text-xl md:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-indigo-600">
+                    {t.ui.title}
+                  </h1>
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className="text-slate-500 font-medium text-sm flex items-center gap-2">
+                      <i className="fas fa-user text-sm text-indigo-400"></i> {t.ui.playingAs} <strong className="text-indigo-700">{username}</strong>
+                    </p>
+                    <button 
+                      onClick={() => { setGameState('login'); setUsername(''); }}
+                      className="text-[10px] bg-white/80 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded-md border border-slate-300 transition-colors"
+                      title="Change Player"
+                    >
+                      <i className="fas fa-user-edit"></i>
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2 bg-white/80 border border-slate-200 px-5 py-2 rounded-xl font-mono text-xl font-bold text-slate-700 shadow-sm">
+                    <i className="fas fa-clock text-indigo-500"></i>
+                    {formatTime(time)}
+                  </div>
+                  <button
+                    onClick={setupGame}
+                    className="flex items-center gap-2 hover:bg-rose-50 hover:text-rose-600 text-slate-500 px-4 py-2 rounded-xl transition-colors font-bold text-sm"
+                  >
+                    <i className="fas fa-rotate-left"></i> {t.ui.reset}
+                  </button>
+                </div>
+              </header>
+
+              {/* Quiz Main Area */}
+              <main className="w-full flex-grow flex flex-col items-center justify-center gap-8">
+                
+                {/* Progress & Score Bar */}
+                <div className="w-full max-w-4xl">
+                  <div className="flex justify-between items-end mb-3 px-2">
+                    <span className="text-sm font-extrabold text-slate-400 uppercase tracking-widest">
+                      {t.ui.question} <span className="text-indigo-600 text-lg">{currentQIndex + 1}</span> / {questions.length}
+                    </span>
+                    <span className="text-sm font-extrabold text-slate-400 uppercase tracking-widest">
+                      {t.ui.score}: <span className="text-emerald-500 text-lg">{score}</span>
+                    </span>
+                  </div>
+                  <div className="w-full h-4 bg-slate-200/80 rounded-full overflow-hidden shadow-inner border border-slate-300/50">
+                    <div 
+                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500 ease-out relative"
+                      style={{ width: `${(currentQIndex / questions.length) * 100}%` }}
+                    >
+                      <div className="absolute inset-0 bg-white/20 w-full h-full" style={{ backgroundImage: 'linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent)', backgroundSize: '1rem 1rem' }}></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* The Interactive Question Card */}
+                {questions.length > 0 && (
+                  <div className="glass-card w-full max-w-4xl rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative overflow-hidden">
+                    {/* Decorative Background Elements inside card */}
+                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-400/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                    {/* The Question (Item) */}
+                    <div className="text-center mb-12 relative z-10">
+                      <h2 
+                        key={currentQIndex} // Forces re-animation on question change
+                        className="text-3xl md:text-5xl font-black text-slate-800 leading-tight drop-shadow-sm animate-in slide-in-from-bottom-4 fade-in duration-500"
+                      >
+                        "{t.items[questions[currentQIndex].id]}"
+                      </h2>
+                    </div>
+
+                    {/* The 4 Category Buttons */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 relative z-10">
+                      {CATEGORIES_CONFIG.map((cat, idx) => {
+                        const isSelected = selectedAnswer === cat.id;
+                        const isCorrectAnswer = cat.id === questions[currentQIndex].target;
+                        
+                        let btnClasses = "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-indigo-300 hover:shadow-lg hover:-translate-y-1";
+                        let icon = null;
+
+                        if (isRevealing) {
+                          if (isCorrectAnswer) {
+                            btnClasses = "bg-gradient-to-r from-emerald-400 to-emerald-500 border-emerald-400 text-white pulse-glow-green scale-[1.02] shadow-xl z-20";
+                            icon = <i className="fas fa-check-circle text-3xl absolute right-6 opacity-80 animate-in zoom-in"></i>;
+                          } else if (isSelected && !isCorrectAnswer) {
+                            btnClasses = "bg-gradient-to-r from-rose-400 to-rose-500 border-rose-400 text-white animate-shake shadow-lg z-20";
+                            icon = <i className="fas fa-times-circle text-3xl absolute right-6 opacity-80"></i>;
+                          } else {
+                            btnClasses = "bg-white border-slate-200 text-slate-400 opacity-40 scale-95 grayscale";
+                          }
+                        }
+
+                        return (
+                          <button
+                            key={cat.id}
+                            onClick={() => handleAnswer(cat.id)}
+                            disabled={isRevealing}
+                            className={`relative w-full p-6 md:p-8 rounded-3xl border-2 font-bold transition-all duration-300 flex flex-col items-center justify-center gap-2 text-center group ${btnClasses}`}
+                            style={{ animationDelay: `${idx * 50}ms` }} // Staggered intro if we added intro animation
+                          >
+                            <span className={`text-xl md:text-2xl drop-shadow-sm ${isRevealing && (isCorrectAnswer || isSelected) ? 'text-white' : 'text-slate-800'}`}>
+                              {t.cats[cat.id].title}
+                            </span>
+                            <span className={`text-xs md:text-sm font-semibold uppercase tracking-widest opacity-80 ${isRevealing && (isCorrectAnswer || isSelected) ? 'text-white' : 'text-slate-500'}`}>
+                              {t.cats[cat.id].subtitle}
+                            </span>
+                            {/* Visual Category Color Hint (only when not revealing) */}
+                            {!isRevealing && (
+                              <div className={`absolute top-0 left-0 w-full h-1.5 rounded-t-3xl bg-gradient-to-r ${cat.color} opacity-80`}></div>
+                            )}
+                            {icon}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </main>
+            </div>
+            
+          // RESULTS SCREEN
+          ) : (
+            <div className="flex-grow flex flex-col items-center p-4 md:p-8 relative z-10 w-full max-w-7xl mx-auto mt-8 animate-in slide-in-from-bottom-8 fade-in duration-700">
+              
+              <div className="w-full flex flex-col lg:flex-row gap-8 items-start">
+                {/* Results Card */}
+                <div className="glass-card p-10 md:p-12 rounded-[2.5rem] shadow-2xl border border-white flex-1 w-full flex flex-col items-center text-center">
+                  
+                  {score === questions.length ? (
+                    <div className="w-24 h-24 bg-gradient-to-br from-yellow-300 to-amber-500 rounded-full flex items-center justify-center shadow-xl shadow-amber-500/40 mb-6 animate-bounce">
+                      <i className="fas fa-crown text-4xl text-white"></i>
+                    </div>
+                  ) : (
+                    <div className="w-24 h-24 bg-gradient-to-br from-indigo-400 to-blue-500 rounded-full flex items-center justify-center shadow-xl shadow-blue-500/40 mb-6">
+                      <i className="fas fa-check-double text-4xl text-white"></i>
+                    </div>
+                  )}
+
+                  <h3 className="text-3xl font-black text-slate-800 mb-2">{t.ui.yourResults}</h3>
+                  <div className="text-7xl md:text-8xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-4 drop-shadow-sm">
+                    {score} <span className="text-4xl text-slate-300">/ {questions.length}</span>
+                  </div>
+                  
+                  <div className="bg-slate-100/80 px-6 py-3 rounded-2xl font-bold text-slate-600 flex items-center gap-3 mb-8 shadow-inner border border-slate-200">
+                    <i className="fas fa-stopwatch text-indigo-500 text-xl"></i> 
+                    {t.ui.time}: {formatTime(time)}
+                  </div>
+                  
+                  <p className="text-lg text-slate-600 font-medium mb-10 max-w-md leading-relaxed">
+                    {score === questions.length ? t.ui.perfect : t.ui.goodEffort}
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                    <button
+                      onClick={setupGame}
+                      className="flex items-center justify-center gap-3 bg-gradient-to-r from-slate-800 to-slate-900 text-white px-8 py-4 rounded-full font-bold text-lg hover:shadow-2xl hover:shadow-slate-800/40 hover:-translate-y-1 active:translate-y-0 w-full sm:w-auto transition-all"
+                    >
+                      <i className="fas fa-rotate-left"></i> {t.ui.playAgain}
+                    </button>
+                    <button
+                      onClick={() => { setGameState('login'); setUsername(''); }}
+                      className="flex items-center justify-center gap-3 bg-white text-indigo-600 border-2 border-indigo-100 px-8 py-4 rounded-full font-bold text-lg hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-lg hover:-translate-y-1 active:translate-y-0 w-full sm:w-auto transition-all"
+                    >
+                      <i className="fas fa-user-edit"></i> {t.ui.changePlayer}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Leaderboard Card */}
+                <div className="glass-card rounded-[2.5rem] shadow-2xl border border-white flex-1 w-full overflow-hidden flex flex-col">
+                  <div className="bg-gradient-to-r from-slate-50/90 to-white/90 p-8 border-b border-slate-200/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-gradient-to-br from-amber-200 to-orange-400 text-white rounded-2xl shadow-lg shadow-amber-500/30">
+                        <i className="fas fa-trophy text-2xl"></i>
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-black text-slate-800">{t.ui.localLeaderboard}</h3>
+                        <p className="text-sm text-slate-500 font-bold uppercase tracking-wider">{t.ui.savedOnDevice}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Controls */}
+                    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                      <button onClick={clearLeaderboard} className="flex-1 sm:flex-none text-xs flex items-center justify-center gap-2 bg-white/80 border border-rose-200 hover:bg-rose-50 text-rose-600 px-4 py-2 rounded-xl transition-all font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5">
+                        <i className="fas fa-trash"></i> {t.ui.clear}
+                      </button>
+                      <button onClick={exportLeaderboard} className="flex-1 sm:flex-none text-xs flex items-center justify-center gap-2 bg-white/80 border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-xl transition-all font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5">
+                        <i className="fas fa-download"></i> {t.ui.export}
+                      </button>
+                      <label className="flex-1 sm:flex-none text-xs flex items-center justify-center gap-2 bg-white/80 border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-xl transition-all font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
+                        <i className="fas fa-upload"></i> {t.ui.import}
+                        <input type="file" accept=".json" onChange={importLeaderboard} className="hidden" />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="p-0 overflow-x-auto flex-grow">
+                    <table className="w-full text-left border-collapse min-w-[400px]">
+                      <thead>
+                        <tr className="bg-slate-50/50 text-slate-400 text-xs uppercase tracking-widest font-black">
+                          <th className="py-4 px-8">{t.ui.rank}</th>
+                          <th className="py-4 px-8">{t.ui.player}</th>
+                          <th className="py-4 px-8 text-right">{t.ui.score}</th>
+                          <th className="py-4 px-8 text-right">{t.ui.time}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leaderboard.length === 0 ? (
+                          <tr><td colSpan="4" className="text-center py-12 text-slate-400 font-bold">{t.ui.noScores}</td></tr>
+                        ) : leaderboard.map((entry, index) => (
+                          <tr key={entry.id} className="border-t border-slate-100/50 hover:bg-white/60 transition-colors group">
+                            <td className="py-5 px-8">
+                              <span className={`
+                                inline-flex items-center justify-center w-10 h-10 rounded-2xl font-black text-sm shadow-sm transition-transform group-hover:scale-110
+                                ${index === 0 ? 'bg-gradient-to-br from-yellow-300 to-amber-500 text-white shadow-amber-500/40' : 
+                                  index === 1 ? 'bg-gradient-to-br from-slate-300 to-slate-400 text-white shadow-slate-500/30' : 
+                                  index === 2 ? 'bg-gradient-to-br from-orange-300 to-orange-400 text-white shadow-orange-500/30' : 'bg-slate-100 text-slate-500'}
+                              `}>
+                                #{index + 1}
+                              </span>
+                            </td>
+                            <td className="py-5 px-8 font-extrabold text-slate-700 text-lg">{entry.username}</td>
+                            <td className="py-5 px-8 text-right font-black text-indigo-600 text-xl">{entry.score}<span className="text-sm text-slate-400">/{entry.total}</span></td>
+                            <td className="py-5 px-8 text-right text-slate-500 font-mono font-bold text-lg">{formatTime(entry.time)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
