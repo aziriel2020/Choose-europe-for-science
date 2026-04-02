@@ -5,13 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Choose Europe Quiz - Local Edition</title>
   
-  <!-- Dependencies -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
+  <script type="module">
+    window.importFirebaseModules = async () => {
+      const app = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js");
+      const auth = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+      const firestore = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+      return { app, auth, firestore };
+    };
+  </script>
+
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     .user-select-none { user-select: none; }
@@ -217,7 +225,7 @@
           c4: { title: "Práce a Financování", subtitle: "kde hledat?" }
         },
         items: {
-          i1: "Víza a podmínky vstupu", i2: "Pracovní povolení", i3: "Modrá karta EU", i4: "Dohoda o hostování", i5: "Uznávání akademických diplomů", i6: "Uznávání profesních kvalifikací", i7: "Spravedlivé zdanění a plat", i8: "Práva v nezaměstnanosti", i9: "Specializovaný penzijní systém - RESAVER", i10: "Práva duševního vlastnictví", i11: "Kariérní rozvoj", i12: "Krátkodobá a dlouhodobá mobilita", i13: "Ubytování", i14: "Bankovnictví", i15: "Zdravotní pojištění", i16: "Péče o děti, školství a rodinné záležitosti", i17: "Kulturní a jazykové kurzy", i18: "EURAXESS", i19: "Horizont Evropa", i20: "Akce Marie Skłodowská-Curie (MSCA)", i21: "Evropská rada pro výzkum (ERC)"
+          i1: "Víza a podmínky vstupu", i2: "Pracovní povolení", i3: "Modrá karta EU", i4: "Dohoda o hostování", i5: "Uznávání akademických diplomů", i6: "Uznávání profesních kvalifikací", i7: "Spravedlivé zdanění a plat", i8: "Práva v nezaměstnanosti", i9: "Specializovaný penzijní systém - RESAVER", i10: "Práva duševního vlastnictví", i11: "Kariérní rozvoj", i12: "Krátkodobá a dlouhodobá mobilita", i13: "Ubytování", i14: "Bankovníctví", i15: "Zdravotní pojištění", i16: "Péče o děti, školství a rodinné záležitosti", i17: "Kulturní a jazykové kurzy", i18: "EURAXESS", i19: "Horizont Evropa", i20: "Akce Marie Skłodowská-Curie (MSCA)", i21: "Evropská rada pro výzkum (ERC)"
         }
       },
       ro: {
@@ -864,6 +872,12 @@
       const [pwdInput, setPwdInput] = useState('');
       const [clearType, setClearType] = useState('leaderboard'); // 'leaderboard' | 'stats'
 
+      // --- Firebase Specific State ---
+      const [db, setDb] = useState(null);
+      const [auth, setAuth] = useState(null);
+      const [user, setUser] = useState(null);
+      const [fbActions, setFbActions] = useState(null);
+
       const t = i18n[lang] || i18n['en'];
 
       const showToast = (msg) => {
@@ -871,7 +885,7 @@
         setTimeout(() => setToast(null), 3000);
       };
 
-      // --- Initialization & Local Storage ---
+      // --- Initialization & Local Storage Fallback ---
       useEffect(() => {
         const savedScores = localStorage.getItem('chooseEuropeQuizLeaderboard');
         if (savedScores) {
@@ -882,6 +896,101 @@
           }
         }
       }, []);
+
+      // --- Firebase Setup ---
+      useEffect(() => {
+        let isMounted = true;
+        const initFirebase = async () => {
+          try {
+            if (!window.importFirebaseModules) return;
+            const { app: fbApp, auth: fbAuth, firestore: fbFirestore } = await window.importFirebaseModules();
+            const { initializeApp } = fbApp;
+            const { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } = fbAuth;
+            const { getFirestore, collection, onSnapshot, addDoc, doc, setDoc, getDoc, deleteDoc } = fbFirestore;
+
+            // For external deployment (like Vercel), paste your config inside this object:
+            const EXTERNAL_CONFIG = {
+              apiKey: "AIzaSyCAvHmcX26KC25lSyNSqHcsyZxaw6xcjb8",
+              authDomain: "choose-europe-for-science-game.firebaseapp.com",
+              databaseURL: "https://choose-europe-for-science-game-default-rtdb.europe-west1.firebasedatabase.app",
+              projectId: "choose-europe-for-science-game",
+              storageBucket: "choose-europe-for-science-game.firebasestorage.app",
+              messagingSenderId: "343331458120",
+              appId: "1:343331458120:web:91033717ea360383505c7d",
+              measurementId: "G-M8BX9Z465C"
+            }; 
+            
+            let config = {};
+            if (typeof __firebase_config !== 'undefined') {
+              config = JSON.parse(__firebase_config);
+            } else if (Object.keys(EXTERNAL_CONFIG).length > 0) {
+              config = EXTERNAL_CONFIG;
+            }
+
+            if (Object.keys(config).length > 0) {
+              const appInstance = initializeApp(config);
+              const authInstance = getAuth(appInstance);
+              const dbInstance = getFirestore(appInstance);
+              
+              if (isMounted) {
+                setAuth(authInstance);
+                setDb(dbInstance);
+                setFbActions({ collection, onSnapshot, addDoc, doc, setDoc, getDoc, deleteDoc });
+              }
+
+              const initAuth = async () => {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                  await signInWithCustomToken(authInstance, __initial_auth_token);
+                } else {
+                  await signInAnonymously(authInstance);
+                }
+              };
+              await initAuth();
+              onAuthStateChanged(authInstance, (u) => {
+                 if(isMounted) setUser(u);
+              });
+            }
+          } catch(err) {
+            console.error("Firebase init failed:", err);
+          }
+        };
+        initFirebase();
+        return () => { isMounted = false; };
+      }, []);
+
+      // --- Firebase Listeners ---
+      useEffect(() => {
+        if (!user || !db || !fbActions) return;
+        const { collection, onSnapshot } = fbActions;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'choose-europe-quiz-app';
+
+        const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+        const unsubLeader = onSnapshot(leaderboardRef, (snapshot) => {
+          const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          const sortedData = data.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return a.time - b.time;
+          }).slice(0, 10);
+          setLeaderboard(sortedData);
+        }, (e) => console.error(e));
+
+        const statsRef = collection(db, 'artifacts', appId, 'public', 'data', 'stats');
+        const unsubStats = onSnapshot(statsRef, (snapshot) => {
+          let total = 0;
+          snapshot.docs.forEach(d => {
+            if (d.id === 'global') {
+              total = d.data().totalPlayers || 0;
+            }
+          });
+          setTotalPlayers(total);
+        }, (e) => console.error(e));
+
+        return () => {
+          unsubLeader();
+          unsubStats();
+        };
+      }, [user, db, fbActions]);
+
 
       const setupGame = () => {
         const shuffled = shuffle([...ITEMS_CONFIG]);
@@ -944,33 +1053,58 @@
         }, 1500);
       };
 
-      const endGame = (finalScore) => {
+      const endGame = async (finalScore) => {
         setGameState('results');
         
-        // Update Total Players Statistic
-        const newTotalPlayers = totalPlayers + 1;
-        setTotalPlayers(newTotalPlayers);
-        localStorage.setItem('chooseEuropeTotalPlayers', newTotalPlayers);
-
-        // Update Leaderboard
-        const newEntry = {
-          id: Date.now(),
-          username: username.trim(),
-          score: finalScore,
-          time: time,
-          total: questions.length
-        };
-        
-        setLeaderboard(prev => {
-          const updated = [...prev, newEntry];
-          const sorted = updated.sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score;
-            return a.time - b.time;
-          }).slice(0, 10); 
+        if (db && fbActions && user) {
+          const { collection, addDoc, doc, setDoc, getDoc } = fbActions;
+          const appId = typeof __app_id !== 'undefined' ? __app_id : 'choose-europe-quiz-app';
           
-          localStorage.setItem('chooseEuropeQuizLeaderboard', JSON.stringify(sorted));
-          return sorted;
-        });
+          // Update Stats
+          const statsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'global');
+          const statSnap = await getDoc(statsDocRef);
+          if (statSnap.exists()) {
+            await setDoc(statsDocRef, { totalPlayers: statSnap.data().totalPlayers + 1 }, { merge: true });
+          } else {
+            await setDoc(statsDocRef, { totalPlayers: 1 });
+          }
+
+          // Update Leaderboard
+          const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+          await addDoc(leaderboardRef, {
+            username: username.trim(),
+            score: finalScore,
+            time: time,
+            total: questions.length,
+            timestamp: Date.now(),
+            userId: user.uid
+          });
+
+        } else {
+          // Local fallback
+          const newTotalPlayers = totalPlayers + 1;
+          setTotalPlayers(newTotalPlayers);
+          localStorage.setItem('chooseEuropeTotalPlayers', newTotalPlayers);
+
+          const newEntry = {
+            id: Date.now(),
+            username: username.trim(),
+            score: finalScore,
+            time: time,
+            total: questions.length
+          };
+          
+          setLeaderboard(prev => {
+            const updated = [...prev, newEntry];
+            const sorted = updated.sort((a, b) => {
+              if (b.score !== a.score) return b.score - a.score;
+              return a.time - b.time;
+            }).slice(0, 10); 
+            
+            localStorage.setItem('chooseEuropeQuizLeaderboard', JSON.stringify(sorted));
+            return sorted;
+          });
+        }
       };
 
       // --- File System Operations & Resets ---
@@ -995,13 +1129,30 @@
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = async (event) => {
           try {
             const importedData = JSON.parse(event.target.result);
             if (Array.isArray(importedData)) {
-              setLeaderboard(importedData);
-              localStorage.setItem('chooseEuropeQuizLeaderboard', JSON.stringify(importedData));
-              showToast("Leaderboard imported successfully! 🚀");
+              if (db && fbActions && user) {
+                 const { collection, addDoc } = fbActions;
+                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'choose-europe-quiz-app';
+                 const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                 for (let entry of importedData) {
+                    await addDoc(leaderboardRef, {
+                      username: entry.username,
+                      score: entry.score,
+                      time: entry.time,
+                      total: entry.total,
+                      timestamp: entry.timestamp || Date.now(),
+                      userId: user.uid
+                    });
+                 }
+                 showToast("Leaderboard imported to Cloud! 🚀");
+              } else {
+                 setLeaderboard(importedData);
+                 localStorage.setItem('chooseEuropeQuizLeaderboard', JSON.stringify(importedData));
+                 showToast("Leaderboard imported locally! 🚀");
+              }
             } else {
               showToast("Invalid file format.");
             }
@@ -1025,16 +1176,32 @@
         setPwdInput('');
       };
 
-      const confirmClear = () => {
+      const confirmClear = async () => {
         if (pwdInput === "rtdf4") {
-          if (clearType === 'leaderboard') {
-            setLeaderboard([]);
-            localStorage.removeItem('chooseEuropeQuizLeaderboard');
-            showToast("Leaderboard cleared! 🗑️");
-          } else if (clearType === 'stats') {
-            setTotalPlayers(0);
-            localStorage.setItem('chooseEuropeTotalPlayers', '0');
-            showToast("Stats cleared! 🗑️");
+          if (db && fbActions) {
+            const { deleteDoc, doc, setDoc } = fbActions;
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'choose-europe-quiz-app';
+
+            if (clearType === 'leaderboard') {
+              const promises = leaderboard.map(entry => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', entry.id)));
+              await Promise.all(promises);
+              showToast("Leaderboard cleared! 🗑️");
+            } else if (clearType === 'stats') {
+              const statsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'global');
+              await setDoc(statsDocRef, { totalPlayers: 0 });
+              showToast("Stats cleared! 🗑️");
+            }
+          } else {
+            // Local fallback
+            if (clearType === 'leaderboard') {
+              setLeaderboard([]);
+              localStorage.removeItem('chooseEuropeQuizLeaderboard');
+              showToast("Leaderboard cleared! 🗑️");
+            } else if (clearType === 'stats') {
+              setTotalPlayers(0);
+              localStorage.setItem('chooseEuropeTotalPlayers', '0');
+              showToast("Stats cleared! 🗑️");
+            }
           }
           setShowPwdModal(false);
         } else {
@@ -1317,7 +1484,9 @@
                         </div>
                         <div>
                           <h3 className="text-xl md:text-2xl font-black text-slate-800">{t.ui.localLeaderboard}</h3>
-                          <p className="text-xs md:text-sm text-slate-500 font-bold uppercase tracking-wider">{t.ui.savedOnDevice}</p>
+                          <p className="text-xs md:text-sm text-slate-500 font-bold uppercase tracking-wider">
+                            {db ? <><i className="fas fa-cloud text-indigo-400 mr-1"></i> Synced</> : t.ui.savedOnDevice}
+                          </p>
                         </div>
                       </div>
 
